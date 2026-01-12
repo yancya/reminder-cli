@@ -7,7 +7,7 @@ struct ReminderCLI: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "reminder-cli",
         abstract: "A CLI tool to manage iCloud Reminders",
-        version: "0.1.1",
+        version: "0.1.2",
         subcommands: [
             List.self,
             Show.self,
@@ -32,14 +32,17 @@ extension ReminderCLI {
         @Flag(name: .shortAndLong, help: "Show completed reminders")
         var completed: Bool = false
 
+        @Option(name: .shortAndLong, help: "Output format (text, json, pretty-json, yaml)")
+        var format: OutputFormat = .text
+
         mutating func run() async throws {
             let store = ReminderStore()
             try await store.requestAccess()
 
             if let listName = listName {
-                try await store.listReminders(in: listName, showCompleted: completed)
+                try await store.listReminders(in: listName, showCompleted: completed, format: format)
             } else {
-                try await store.listAllReminders(showCompleted: completed)
+                try await store.listAllReminders(showCompleted: completed, format: format)
             }
         }
     }
@@ -55,10 +58,13 @@ extension ReminderCLI {
         @Argument(help: "The ID or title of the reminder to show")
         var identifier: String
 
+        @Option(name: .shortAndLong, help: "Output format (text, json, pretty-json, yaml)")
+        var format: OutputFormat = .text
+
         mutating func run() async throws {
             let store = ReminderStore()
             try await store.requestAccess()
-            try await store.showReminder(identifier: identifier)
+            try await store.showReminder(identifier: identifier, format: format)
         }
     }
 }

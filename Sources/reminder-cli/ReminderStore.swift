@@ -43,47 +43,77 @@ class ReminderStore {
 
     // MARK: - List Operations
 
-    func listAllReminders(showCompleted: Bool) async throws {
+    func listAllReminders(showCompleted: Bool, format: OutputFormat = .text) async throws {
         let calendars = eventStore.calendars(for: .reminder)
 
-        for calendar in calendars {
-            print("\n📋 \(calendar.title)")
-            print("─────────────────────────────────────")
-            try await listReminders(in: calendar, showCompleted: showCompleted)
+        if format == .text {
+            for calendar in calendars {
+                print("\n📋 \(calendar.title)")
+                print("─────────────────────────────────────")
+                try await listReminders(in: calendar, showCompleted: showCompleted, format: format)
+            }
+        } else {
+            // For structured formats, collect all reminders
+            var allReminders: [EKReminder] = []
+            for calendar in calendars {
+                let predicate = eventStore.predicateForReminders(in: [calendar])
+                let reminders = try await fetchReminders(matching: predicate)
+                let filteredReminders = showCompleted ? reminders : reminders.filter { !$0.isCompleted }
+                allReminders.append(contentsOf: filteredReminders.sorted(by: sortReminders))
+            }
+
+            let formatter = OutputFormatter(format: format)
+            let outputs = allReminders.map { formatter.convertReminder($0) }
+            try formatter.output(reminders: outputs)
         }
     }
 
-    func listReminders(in listName: String, showCompleted: Bool) async throws {
+    func listReminders(in listName: String, showCompleted: Bool, format: OutputFormat = .text) async throws {
         guard let calendar = findCalendar(named: listName) else {
             throw ReminderStoreError.listNotFound(listName)
         }
 
-        print("\n📋 \(calendar.title)")
-        print("─────────────────────────────────────")
-        try await listReminders(in: calendar, showCompleted: showCompleted)
+        if format == .text {
+            print("\n📋 \(calendar.title)")
+            print("─────────────────────────────────────")
+        }
+        try await listReminders(in: calendar, showCompleted: showCompleted, format: format)
     }
 
-    private func listReminders(in calendar: EKCalendar, showCompleted: Bool) async throws {
+    private func listReminders(in calendar: EKCalendar, showCompleted: Bool, format: OutputFormat = .text) async throws {
         let predicate = eventStore.predicateForReminders(in: [calendar])
         let reminders = try await fetchReminders(matching: predicate)
 
         let filteredReminders = showCompleted ? reminders : reminders.filter { !$0.isCompleted }
 
-        if filteredReminders.isEmpty {
-            print("  (no reminders)")
-            return
-        }
+        if format == .text {
+            if filteredReminders.isEmpty {
+                print("  (no reminders)")
+                return
+            }
 
-        for reminder in filteredReminders.sorted(by: sortReminders) {
-            printReminderSummary(reminder)
+            for reminder in filteredReminders.sorted(by: sortReminders) {
+                printReminderSummary(reminder)
+            }
+        } else {
+            let formatter = OutputFormatter(format: format)
+            let outputs = filteredReminders.sorted(by: sortReminders).map { formatter.convertReminder($0) }
+            try formatter.output(reminders: outputs)
         }
     }
 
     // MARK: - Show Operation
 
-    func showReminder(identifier: String) async throws {
+    func showReminder(identifier: String, format: OutputFormat = .text) async throws {
         let reminder = try await findReminder(identifier: identifier)
-        printReminderDetails(reminder)
+
+        if format == .text {
+            printReminderDetails(reminder)
+        } else {
+            let formatter = OutputFormatter(format: format)
+            let output = formatter.convertReminder(reminder)
+            try formatter.output(reminder: output)
+        }
     }
 
     // MARK: - Create Operation
