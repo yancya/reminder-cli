@@ -19,9 +19,11 @@ enum ReminderStoreError: LocalizedError {
             var message = "Ambiguous identifier '\(identifier)' matches \(matches.count) reminders:\n"
             for reminder in matches {
                 let title = reminder.title ?? "(no title)"
-                message += "  \(reminder.calendarItemIdentifier) - \(title)\n"
+                let fullID = reminder.calendarItemIdentifier
+                let shortID = String(fullID.prefix(8))
+                message += "  [\(shortID)] \(fullID) - \(title)\n"
             }
-            message += "\nPlease use a longer prefix or the full ID."
+            message += "\nPlease use a longer prefix (e.g., 9+ characters) or the full ID."
             return message
         case .listNotFound(let name):
             return "List not found: \(name)"
