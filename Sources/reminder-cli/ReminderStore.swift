@@ -378,6 +378,13 @@ class ReminderStore {
             print("Created:    \(formatter.string(from: creationDate))")
         }
 
+        if let recurrenceRules = reminder.recurrenceRules, !recurrenceRules.isEmpty {
+            print("Recurrence: \(recurrenceRules.count) rule(s)")
+            for (index, rule) in recurrenceRules.enumerated() {
+                print("  [\(index + 1)] \(formatRecurrenceRule(rule))")
+            }
+        }
+
         if let alarms = reminder.alarms, !alarms.isEmpty {
             print("Alarms:     \(alarms.count)")
             for (index, alarm) in alarms.enumerated() {
@@ -445,5 +452,58 @@ class ReminderStore {
         case 6...9: return "Low"
         default: return "None"
         }
+    }
+
+    private func formatRecurrenceRule(_ rule: EKRecurrenceRule) -> String {
+        var result = ""
+
+        // Frequency
+        let frequencyText: String
+        switch rule.frequency {
+        case .daily:
+            frequencyText = rule.interval == 1 ? "Daily" : "Every \(rule.interval) days"
+        case .weekly:
+            frequencyText = rule.interval == 1 ? "Weekly" : "Every \(rule.interval) weeks"
+        case .monthly:
+            frequencyText = rule.interval == 1 ? "Monthly" : "Every \(rule.interval) months"
+        case .yearly:
+            frequencyText = rule.interval == 1 ? "Yearly" : "Every \(rule.interval) years"
+        @unknown default:
+            frequencyText = "Unknown frequency"
+        }
+        result += frequencyText
+
+        // Days of the week (for weekly recurrence)
+        if let daysOfWeek = rule.daysOfTheWeek, !daysOfWeek.isEmpty {
+            let dayNames = daysOfWeek.compactMap { dayOfWeek -> String? in
+                switch dayOfWeek.dayOfTheWeek {
+                case .sunday: return "Sun"
+                case .monday: return "Mon"
+                case .tuesday: return "Tue"
+                case .wednesday: return "Wed"
+                case .thursday: return "Thu"
+                case .friday: return "Fri"
+                case .saturday: return "Sat"
+                @unknown default: return nil
+                }
+            }
+            if !dayNames.isEmpty {
+                result += " on \(dayNames.joined(separator: ", "))"
+            }
+        }
+
+        // Recurrence end
+        if let end = rule.recurrenceEnd {
+            if let endDate = end.endDate {
+                let formatter = DateFormatter()
+                formatter.dateStyle = .medium
+                formatter.timeStyle = .none
+                result += " (until \(formatter.string(from: endDate)))"
+            } else if end.occurrenceCount > 0 {
+                result += " (\(end.occurrenceCount) times)"
+            }
+        }
+
+        return result
     }
 }

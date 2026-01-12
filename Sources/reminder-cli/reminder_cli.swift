@@ -7,7 +7,7 @@ struct ReminderCLI: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "reminder-cli",
         abstract: "A CLI tool to manage iCloud Reminders",
-        version: "0.1.0",
+        version: "0.1.1",
         subcommands: [
             List.self,
             Show.self,

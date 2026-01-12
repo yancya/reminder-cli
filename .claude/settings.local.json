@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "Bash(.build/debug/reminder-cli:*)",
+      "Bash(swift build:*)",
+      "Bash(reminder-cli show:*)",
+      "Bash(/bin/cp -f .build/release/reminder-cli ~/bin/)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push)",
+      "Bash(make)",
+      "Bash(/usr/bin/make:*)",
+      "Bash(git tag -a v0.1.0 -m \"$\\(cat <<''EOF''\nRelease v0.1.0\n\nInitial release of reminder-cli - A Swift-based CLI tool for managing iCloud Reminders on macOS.\n\nFeatures:\n- List, show, create, update, delete, and complete reminders\n- Support for lists, notes, URLs, start/due dates, and priority\n- Display detailed alarm information \\(location-based, time-based, relative\\)\n- Built with Swift and EventKit framework\n- Makefile for easy build and installation\n\nKnown limitations \\(EventKit API\\):\n- Tags not accessible\n- Flags not accessible\n- Attachments not accessible\nEOF\n\\)\")",
+      "Bash(git push:*)",
+      "Bash(reminder-cli:*)"
+    ]
+  }
+}
