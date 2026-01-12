@@ -4,6 +4,7 @@ import Foundation
 enum ReminderStoreError: LocalizedError {
     case accessDenied
     case reminderNotFound(String)
+    case ambiguousIdentifier(String, [EKReminder])
     case listNotFound(String)
     case invalidDateFormat(String)
     case invalidPriority(Int)
@@ -14,6 +15,14 @@ enum ReminderStoreError: LocalizedError {
             return "Access to Reminders was denied. Please grant permission in System Settings."
         case .reminderNotFound(let identifier):
             return "Reminder not found: \(identifier)"
+        case .ambiguousIdentifier(let identifier, let matches):
+            var message = "Ambiguous identifier '\(identifier)' matches \(matches.count) reminders:\n"
+            for reminder in matches {
+                let title = reminder.title ?? "(no title)"
+                message += "  \(reminder.calendarItemIdentifier) - \(title)\n"
+            }
+            message += "\nPlease use a longer prefix or the full ID."
+            return message
         case .listNotFound(let name):
             return "List not found: \(name)"
         case .invalidDateFormat(let format):
@@ -277,18 +286,27 @@ class ReminderStore {
     }
 
     private func findReminder(identifier: String) async throws -> EKReminder {
-        // Try to find by calendar item identifier first
+        // Try to find by exact calendar item identifier first
         if let reminder = eventStore.calendarItem(withIdentifier: identifier) as? EKReminder {
             return reminder
         }
 
-        // Otherwise search by title
+        // Try prefix matching (short ID support, like git commit hashes)
+        let normalizedIdentifier = identifier.uppercased().replacingOccurrences(of: "-", with: "")
+
         let calendars = eventStore.calendars(for: .reminder)
         let predicate = eventStore.predicateForReminders(in: calendars)
         let reminders = try await fetchReminders(matching: predicate)
 
-        if let reminder = reminders.first(where: { $0.title?.lowercased() == identifier.lowercased() }) {
-            return reminder
+        let matches = reminders.filter { reminder in
+            let reminderID = reminder.calendarItemIdentifier.uppercased().replacingOccurrences(of: "-", with: "")
+            return reminderID.hasPrefix(normalizedIdentifier)
+        }
+
+        if matches.count == 1 {
+            return matches[0]
+        } else if matches.count > 1 {
+            throw ReminderStoreError.ambiguousIdentifier(identifier, matches)
         }
 
         throw ReminderStoreError.reminderNotFound(identifier)
@@ -339,7 +357,11 @@ class ReminderStore {
         let priorityMark = priorityIndicator(for: reminder.priority)
         let title = reminder.title ?? "(no title)"
 
-        var line = "  \(checkbox) \(priorityMark)\(title)"
+        // Extract short ID (first 8 characters of UUID without hyphens)
+        let fullID = reminder.calendarItemIdentifier
+        let shortID = String(fullID.prefix(8))
+
+        var line = "  [\(shortID)] \(checkbox) \(priorityMark)\(title)"
 
         if let dueDate = reminder.dueDateComponents?.date {
             let formatter = DateFormatter()

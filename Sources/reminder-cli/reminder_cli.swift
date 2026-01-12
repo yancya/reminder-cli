@@ -7,7 +7,7 @@ struct ReminderCLI: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "reminder-cli",
         abstract: "A CLI tool to manage iCloud Reminders",
-        version: "0.1.2",
+        version: "0.1.3",
         subcommands: [
             List.self,
             Show.self,
@@ -55,7 +55,7 @@ extension ReminderCLI {
             abstract: "Show details of a specific reminder"
         )
 
-        @Argument(help: "The ID or title of the reminder to show")
+        @Argument(help: "The ID (full UUID or short prefix) of the reminder to show")
         var identifier: String
 
         @Option(name: .shortAndLong, help: "Output format (text, json, pretty-json, yaml)")
@@ -124,7 +124,7 @@ extension ReminderCLI {
             abstract: "Update an existing reminder"
         )
 
-        @Argument(help: "The ID or title of the reminder to update")
+        @Argument(help: "The ID (full UUID or short prefix) of the reminder to update")
         var identifier: String
 
         @Option(name: .shortAndLong, help: "New title")
@@ -172,7 +172,7 @@ extension ReminderCLI {
             abstract: "Delete a reminder"
         )
 
-        @Argument(help: "The ID or title of the reminder to delete")
+        @Argument(help: "The ID (full UUID or short prefix) of the reminder to delete")
         var identifier: String
 
         @Flag(name: .shortAndLong, help: "Skip confirmation")
@@ -193,7 +193,7 @@ extension ReminderCLI {
             abstract: "Mark a reminder as completed"
         )
 
-        @Argument(help: "The ID or title of the reminder to complete")
+        @Argument(help: "The ID (full UUID or short prefix) of the reminder to complete")
         var identifier: String
 
         mutating func run() async throws {
