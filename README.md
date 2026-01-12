@@ -174,7 +174,7 @@ swift build -c release          # Release build
 
 ## License
 
-MIT
+[WTFPL](http://www.wtfpl.net/) - Do What The Fuck You Want To Public License
 
 ## Author
 
