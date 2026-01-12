@@ -40,7 +40,7 @@ class ReminderStore {
 
     // MARK: - Reminder Status
 
-    enum ReminderStatus {
+    enum ReminderStatus: Equatable {
         case completed
         case overdue
         case dueToday
@@ -113,14 +113,14 @@ class ReminderStore {
 
     // MARK: - List Operations
 
-    func listAllReminders(showCompleted: Bool, format: OutputFormat = .text) async throws {
+    func listAllReminders(showCompleted: Bool, format: OutputFormat = .text, sortBy: SortOption = .dueDate) async throws {
         let calendars = eventStore.calendars(for: .reminder)
 
         if format == .text {
             for calendar in calendars {
                 print("\n📋 \(calendar.title)")
                 print("─────────────────────────────────────")
-                try await listReminders(in: calendar, showCompleted: showCompleted, format: format)
+                try await listReminders(in: calendar, showCompleted: showCompleted, format: format, sortBy: sortBy)
             }
         } else {
             // For structured formats, collect all reminders
@@ -129,7 +129,7 @@ class ReminderStore {
                 let predicate = eventStore.predicateForReminders(in: [calendar])
                 let reminders = try await fetchReminders(matching: predicate)
                 let filteredReminders = showCompleted ? reminders : reminders.filter { !$0.isCompleted }
-                allReminders.append(contentsOf: filteredReminders.sorted(by: sortReminders))
+                allReminders.append(contentsOf: filteredReminders.sorted(by: sortReminders(by: sortBy)))
             }
 
             let formatter = OutputFormatter(format: format)
@@ -138,7 +138,7 @@ class ReminderStore {
         }
     }
 
-    func listReminders(in listName: String, showCompleted: Bool, format: OutputFormat = .text) async throws {
+    func listReminders(in listName: String, showCompleted: Bool, format: OutputFormat = .text, sortBy: SortOption = .dueDate) async throws {
         guard let calendar = findCalendar(named: listName) else {
             throw ReminderStoreError.listNotFound(listName)
         }
@@ -147,10 +147,10 @@ class ReminderStore {
             print("\n📋 \(calendar.title)")
             print("─────────────────────────────────────")
         }
-        try await listReminders(in: calendar, showCompleted: showCompleted, format: format)
+        try await listReminders(in: calendar, showCompleted: showCompleted, format: format, sortBy: sortBy)
     }
 
-    private func listReminders(in calendar: EKCalendar, showCompleted: Bool, format: OutputFormat = .text) async throws {
+    private func listReminders(in calendar: EKCalendar, showCompleted: Bool, format: OutputFormat = .text, sortBy: SortOption = .dueDate) async throws {
         let predicate = eventStore.predicateForReminders(in: [calendar])
         let reminders = try await fetchReminders(matching: predicate)
 
@@ -162,12 +162,12 @@ class ReminderStore {
                 return
             }
 
-            for reminder in filteredReminders.sorted(by: sortReminders) {
+            for reminder in filteredReminders.sorted(by: sortReminders(by: sortBy)) {
                 printReminderSummary(reminder)
             }
         } else {
             let formatter = OutputFormatter(format: format)
-            let outputs = filteredReminders.sorted(by: sortReminders).map { formatter.convertReminder($0) }
+            let outputs = filteredReminders.sorted(by: sortReminders(by: sortBy)).map { formatter.convertReminder($0) }
             try formatter.output(reminders: outputs)
         }
     }
@@ -392,13 +392,29 @@ class ReminderStore {
         throw ReminderStoreError.invalidDateFormat(string)
     }
 
-    private func sortReminders(_ lhs: EKReminder, _ rhs: EKReminder) -> Bool {
-        // Sort by completion status first
-        if lhs.isCompleted != rhs.isCompleted {
-            return !lhs.isCompleted
-        }
+    private func sortReminders(by sortOption: SortOption) -> (EKReminder, EKReminder) -> Bool {
+        return { lhs, rhs in
+            // Always sort completed reminders to the end
+            if lhs.isCompleted != rhs.isCompleted {
+                return !lhs.isCompleted
+            }
 
-        // Then by due date
+            switch sortOption {
+            case .dueDate:
+                return self.sortByDueDate(lhs, rhs)
+            case .priority:
+                return self.sortByPriority(lhs, rhs)
+            case .title:
+                return self.sortByTitle(lhs, rhs)
+            case .created:
+                return self.sortByCreated(lhs, rhs)
+            case .status:
+                return self.sortByStatus(lhs, rhs)
+            }
+        }
+    }
+
+    private func sortByDueDate(_ lhs: EKReminder, _ rhs: EKReminder) -> Bool {
         if let lhsDate = lhs.dueDateComponents?.date, let rhsDate = rhs.dueDateComponents?.date {
             return lhsDate < rhsDate
         }
@@ -408,9 +424,52 @@ class ReminderStore {
         if rhs.dueDateComponents != nil {
             return false
         }
+        return sortByTitle(lhs, rhs)
+    }
 
-        // Finally by title
-        return (lhs.title ?? "") < (rhs.title ?? "")
+    private func sortByPriority(_ lhs: EKReminder, _ rhs: EKReminder) -> Bool {
+        if lhs.priority != rhs.priority {
+            // Lower number = higher priority (1=high, 5=medium, 9=low, 0=none)
+            // Sort: high (1-4) → medium (5) → low (6-9) → none (0)
+            if lhs.priority == 0 { return false }
+            if rhs.priority == 0 { return true }
+            return lhs.priority < rhs.priority
+        }
+        return sortByDueDate(lhs, rhs)
+    }
+
+    private func sortByTitle(_ lhs: EKReminder, _ rhs: EKReminder) -> Bool {
+        return (lhs.title ?? "").lowercased() < (rhs.title ?? "").lowercased()
+    }
+
+    private func sortByCreated(_ lhs: EKReminder, _ rhs: EKReminder) -> Bool {
+        if let lhsDate = lhs.creationDate, let rhsDate = rhs.creationDate {
+            return lhsDate > rhsDate // Newer first
+        }
+        if lhs.creationDate != nil {
+            return true
+        }
+        if rhs.creationDate != nil {
+            return false
+        }
+        return sortByTitle(lhs, rhs)
+    }
+
+    private func sortByStatus(_ lhs: EKReminder, _ rhs: EKReminder) -> Bool {
+        let lhsStatus = getReminderStatus(lhs)
+        let rhsStatus = getReminderStatus(rhs)
+
+        // Define priority order for statuses
+        let statusOrder: [ReminderStatus] = [.overdue, .dueToday, .scheduled, .pending, .completed]
+
+        if let lhsIndex = statusOrder.firstIndex(of: lhsStatus),
+           let rhsIndex = statusOrder.firstIndex(of: rhsStatus) {
+            if lhsIndex != rhsIndex {
+                return lhsIndex < rhsIndex
+            }
+        }
+
+        return sortByDueDate(lhs, rhs)
     }
 
     private func printReminderSummary(_ reminder: EKReminder) {
