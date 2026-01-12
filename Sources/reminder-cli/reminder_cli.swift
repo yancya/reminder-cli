@@ -118,7 +118,20 @@ extension ReminderCLI {
 
                     let data = pipe.fileHandleForReading.readDataToEndOfFile()
                     if let output = String(data: data, encoding: .utf8) {
-                        return output.split(separator: "\n").map { String($0.split(separator: "\t")[0]) }
+                        let shell = ProcessInfo.processInfo.environment["SAP_SHELL"] ?? "zsh"
+
+                        return output.split(separator: "\n").map { line in
+                            let parts = line.split(separator: "\t", maxSplits: 1)
+                            if parts.count == 2 {
+                                // fish uses tab-separated format, zsh uses colon
+                                if shell == "fish" {
+                                    return "\(parts[0])\t\(parts[1])"
+                                } else {
+                                    return "\(parts[0]):\(parts[1])"
+                                }
+                            }
+                            return String(parts[0])
+                        }
                     }
                 } catch {
                     // Silently fail
@@ -209,7 +222,19 @@ extension ReminderCLI {
                     process.waitUntilExit()
                     let data = pipe.fileHandleForReading.readDataToEndOfFile()
                     if let output = String(data: data, encoding: .utf8) {
-                        return output.split(separator: "\n").map { String($0.split(separator: "\t")[0]) }
+                        let shell = ProcessInfo.processInfo.environment["SAP_SHELL"] ?? "zsh"
+
+                        return output.split(separator: "\n").map { line in
+                            let parts = line.split(separator: "\t", maxSplits: 1)
+                            if parts.count == 2 {
+                                if shell == "fish" {
+                                    return "\(parts[0])\t\(parts[1])"
+                                } else {
+                                    return "\(parts[0]):\(parts[1])"
+                                }
+                            }
+                            return String(parts[0])
+                        }
                     }
                 } catch {}
                 return []
@@ -276,7 +301,19 @@ extension ReminderCLI {
                     process.waitUntilExit()
                     let data = pipe.fileHandleForReading.readDataToEndOfFile()
                     if let output = String(data: data, encoding: .utf8) {
-                        return output.split(separator: "\n").map { String($0.split(separator: "\t")[0]) }
+                        let shell = ProcessInfo.processInfo.environment["SAP_SHELL"] ?? "zsh"
+
+                        return output.split(separator: "\n").map { line in
+                            let parts = line.split(separator: "\t", maxSplits: 1)
+                            if parts.count == 2 {
+                                if shell == "fish" {
+                                    return "\(parts[0])\t\(parts[1])"
+                                } else {
+                                    return "\(parts[0]):\(parts[1])"
+                                }
+                            }
+                            return String(parts[0])
+                        }
                     }
                 } catch {}
                 return []
@@ -316,7 +353,19 @@ extension ReminderCLI {
                     process.waitUntilExit()
                     let data = pipe.fileHandleForReading.readDataToEndOfFile()
                     if let output = String(data: data, encoding: .utf8) {
-                        return output.split(separator: "\n").map { String($0.split(separator: "\t")[0]) }
+                        let shell = ProcessInfo.processInfo.environment["SAP_SHELL"] ?? "zsh"
+
+                        return output.split(separator: "\n").map { line in
+                            let parts = line.split(separator: "\t", maxSplits: 1)
+                            if parts.count == 2 {
+                                if shell == "fish" {
+                                    return "\(parts[0])\t\(parts[1])"
+                                } else {
+                                    return "\(parts[0]):\(parts[1])"
+                                }
+                            }
+                            return String(parts[0])
+                        }
                     }
                 } catch {}
                 return []
