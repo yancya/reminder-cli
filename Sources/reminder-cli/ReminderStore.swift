@@ -38,6 +38,65 @@ enum ReminderStoreError: LocalizedError {
 class ReminderStore {
     private let eventStore = EKEventStore()
 
+    // MARK: - Reminder Status
+
+    enum ReminderStatus {
+        case completed
+        case overdue
+        case dueToday
+        case scheduled
+        case pending
+
+        var icon: String {
+            switch self {
+            case .completed: return "✅"
+            case .overdue: return "🔥"
+            case .dueToday: return "⚠️"
+            case .scheduled: return "📅"
+            case .pending: return "⏳"
+            }
+        }
+
+        var label: String {
+            switch self {
+            case .completed: return "Completed"
+            case .overdue: return "Overdue"
+            case .dueToday: return "Due today"
+            case .scheduled: return "Scheduled"
+            case .pending: return "Pending"
+            }
+        }
+    }
+
+    private func getReminderStatus(_ reminder: EKReminder) -> ReminderStatus {
+        if reminder.isCompleted {
+            return .completed
+        }
+
+        guard let dueDate = reminder.dueDateComponents?.date else {
+            return .pending
+        }
+
+        let calendar = Calendar.current
+        let now = Date()
+
+        // Check if overdue (due date is in the past)
+        if dueDate < now {
+            // Consider it overdue if it's not today
+            if !calendar.isDateInToday(dueDate) {
+                return .overdue
+            }
+        }
+
+        // Check if due today
+        if calendar.isDateInToday(dueDate) {
+            return .dueToday
+        }
+
+        // Future due date
+        return .scheduled
+    }
+
     func requestAccess() async throws {
         if #available(macOS 14.0, *) {
             let granted = try await eventStore.requestFullAccessToReminders()
@@ -363,6 +422,9 @@ class ReminderStore {
         let fullID = reminder.calendarItemIdentifier
         let shortID = String(fullID.prefix(8))
 
+        // Get status
+        let status = getReminderStatus(reminder)
+
         var line = "  [\(shortID)] \(checkbox) \(priorityMark)\(title)"
 
         if let dueDate = reminder.dueDateComponents?.date {
@@ -370,6 +432,11 @@ class ReminderStore {
             formatter.dateStyle = .short
             formatter.timeStyle = .none
             line += " (due: \(formatter.string(from: dueDate)))"
+        }
+
+        // Add status icon for incomplete reminders (except pending without due date)
+        if !reminder.isCompleted {
+            line += " \(status.icon)"
         }
 
         print(line)
@@ -380,7 +447,9 @@ class ReminderStore {
         print("─────────────────────────────────────")
         print("ID:         \(reminder.calendarItemIdentifier)")
         print("Title:      \(reminder.title ?? "(no title)")")
-        print("Status:     \(reminder.isCompleted ? "Completed ✅" : "Pending ⏳")")
+
+        let status = getReminderStatus(reminder)
+        print("Status:     \(status.label) \(status.icon)")
 
         // TODO: EventKit doesn't support isFlagged directly
         // if reminder.isFlagged {
