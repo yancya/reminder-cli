@@ -21,7 +21,14 @@ A Swift-based command-line tool to manage iCloud Reminders on macOS.
 
 ## Installation
 
-### Using Make (Recommended)
+### Using Homebrew (Recommended)
+
+```bash
+brew tap yancya/reminder-cli
+brew install reminder-cli
+```
+
+### From Source
 
 ```bash
 git clone https://github.com/yancya/reminder-cli.git
@@ -30,15 +37,6 @@ make install
 ```
 
 This will build the release version and install it to `~/bin/reminder-cli`.
-
-### Manual Installation
-
-```bash
-git clone https://github.com/yancya/reminder-cli.git
-cd reminder-cli
-swift build -c release
-cp .build/release/reminder-cli ~/bin/  # or /usr/local/bin/
-```
 
 ## Usage
 
