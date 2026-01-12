@@ -92,8 +92,11 @@ class ReminderStore {
         title: String,
         listName: String?,
         notes: String?,
+        startDate: String?,
         dueDate: String?,
-        priority: Int?
+        priority: Int?,
+        flagged: Bool?,
+        url: String?
     ) async throws {
         let calendar: EKCalendar
         if let listName = listName {
@@ -110,6 +113,10 @@ class ReminderStore {
         reminder.calendar = calendar
         reminder.notes = notes
 
+        if let startDateString = startDate {
+            reminder.startDateComponents = try parseDateComponents(from: startDateString)
+        }
+
         if let dueDateString = dueDate {
             reminder.dueDateComponents = try parseDateComponents(from: dueDateString)
         }
@@ -119,6 +126,15 @@ class ReminderStore {
                 throw ReminderStoreError.invalidPriority(priority)
             }
             reminder.priority = priority
+        }
+
+        // TODO: EventKit doesn't support isFlagged directly
+        // if let flagged = flagged {
+        //     reminder.isFlagged = flagged
+        // }
+
+        if let urlString = url, let url = URL(string: urlString) {
+            reminder.url = url
         }
 
         try eventStore.save(reminder, commit: true)
@@ -136,8 +152,11 @@ class ReminderStore {
         identifier: String,
         title: String?,
         notes: String?,
+        startDate: String?,
         dueDate: String?,
-        priority: Int?
+        priority: Int?,
+        flagged: Bool?,
+        url: String?
     ) async throws {
         let reminder = try await findReminder(identifier: identifier)
 
@@ -149,6 +168,10 @@ class ReminderStore {
             reminder.notes = notes
         }
 
+        if let startDateString = startDate {
+            reminder.startDateComponents = try parseDateComponents(from: startDateString)
+        }
+
         if let dueDateString = dueDate {
             reminder.dueDateComponents = try parseDateComponents(from: dueDateString)
         }
@@ -158,6 +181,15 @@ class ReminderStore {
                 throw ReminderStoreError.invalidPriority(priority)
             }
             reminder.priority = priority
+        }
+
+        // TODO: EventKit doesn't support isFlagged directly
+        // if let flagged = flagged {
+        //     reminder.isFlagged = flagged
+        // }
+
+        if let urlString = url, let url = URL(string: urlString) {
+            reminder.url = url
         }
 
         try eventStore.save(reminder, commit: true)
@@ -296,12 +328,28 @@ class ReminderStore {
         print("Title:      \(reminder.title ?? "(no title)")")
         print("Status:     \(reminder.isCompleted ? "Completed ✅" : "Pending ⏳")")
 
+        // TODO: EventKit doesn't support isFlagged directly
+        // if reminder.isFlagged {
+        //     print("Flagged:    ⚑")
+        // }
+
         if let list = reminder.calendar?.title {
             print("List:       \(list)")
         }
 
+        if let url = reminder.url {
+            print("URL:        \(url.absoluteString)")
+        }
+
         if let notes = reminder.notes, !notes.isEmpty {
             print("Notes:      \(notes)")
+        }
+
+        if let startDate = reminder.startDateComponents?.date {
+            let formatter = DateFormatter()
+            formatter.dateStyle = .long
+            formatter.timeStyle = .short
+            print("Start:      \(formatter.string(from: startDate))")
         }
 
         if let dueDate = reminder.dueDateComponents?.date {
@@ -332,7 +380,51 @@ class ReminderStore {
 
         if let alarms = reminder.alarms, !alarms.isEmpty {
             print("Alarms:     \(alarms.count)")
+            for (index, alarm) in alarms.enumerated() {
+                var alarmInfo = "  [\(index + 1)] "
+
+                if let location = alarm.structuredLocation {
+                    alarmInfo += "📍 "
+                    if let title = location.title {
+                        alarmInfo += title
+                    }
+                    if alarm.proximity == .enter {
+                        alarmInfo += " (arriving)"
+                    } else if alarm.proximity == .leave {
+                        alarmInfo += " (leaving)"
+                    }
+                } else if let absoluteDate = alarm.absoluteDate {
+                    let formatter = DateFormatter()
+                    formatter.dateStyle = .short
+                    formatter.timeStyle = .short
+                    alarmInfo += formatter.string(from: absoluteDate)
+                } else {
+                    let offset = alarm.relativeOffset
+                    let minutes = Int(offset / 60)
+                    if minutes == 0 {
+                        alarmInfo += "At time of event"
+                    } else if minutes < 0 {
+                        alarmInfo += "\(abs(minutes)) minutes before"
+                    } else {
+                        alarmInfo += "\(minutes) minutes after"
+                    }
+                }
+
+                print(alarmInfo)
+            }
         }
+
+        // TODO: EKReminder doesn't expose attachments property directly
+        // The parent class EKCalendarItem has it, but it's not accessible on EKReminder
+        // if let attachments = reminder.attachments, !attachments.isEmpty {
+        //     print("Attachments: \(attachments.count)")
+        //     for (index, attachment) in attachments.enumerated() {
+        //         if let url = attachment.url {
+        //             print("  [\(index + 1)] \(url.lastPathComponent)")
+        //             print("      \(url.absoluteString)")
+        //         }
+        //     }
+        // }
 
         print()
     }

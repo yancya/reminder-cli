@@ -79,11 +79,20 @@ extension ReminderCLI {
         @Option(name: .shortAndLong, help: "Notes for the reminder")
         var notes: String?
 
+        @Option(help: "Start date (format: YYYY-MM-DD or YYYY-MM-DD HH:MM)")
+        var startDate: String?
+
         @Option(help: "Due date (format: YYYY-MM-DD or YYYY-MM-DD HH:MM)")
         var dueDate: String?
 
         @Option(name: .shortAndLong, help: "Priority (0-9, where 0=none, 1-4=high, 5=medium, 6-9=low)")
         var priority: Int?
+
+        @Flag(name: .shortAndLong, help: "Mark as flagged")
+        var flagged: Bool = false
+
+        @Option(name: .shortAndLong, help: "URL associated with the reminder")
+        var url: String?
 
         mutating func run() async throws {
             let store = ReminderStore()
@@ -92,8 +101,11 @@ extension ReminderCLI {
                 title: title,
                 listName: list,
                 notes: notes,
+                startDate: startDate,
                 dueDate: dueDate,
-                priority: priority
+                priority: priority,
+                flagged: flagged ? true : nil,
+                url: url
             )
         }
     }
@@ -115,11 +127,20 @@ extension ReminderCLI {
         @Option(name: .shortAndLong, help: "New notes")
         var notes: String?
 
+        @Option(help: "New start date (format: YYYY-MM-DD or YYYY-MM-DD HH:MM)")
+        var startDate: String?
+
         @Option(help: "New due date (format: YYYY-MM-DD or YYYY-MM-DD HH:MM)")
         var dueDate: String?
 
         @Option(name: .shortAndLong, help: "New priority (0-9)")
         var priority: Int?
+
+        @Option(name: .long, help: "Set flagged status (true/false)")
+        var flagged: Bool?
+
+        @Option(name: .shortAndLong, help: "New URL")
+        var url: String?
 
         mutating func run() async throws {
             let store = ReminderStore()
@@ -128,8 +149,11 @@ extension ReminderCLI {
                 identifier: identifier,
                 title: title,
                 notes: notes,
+                startDate: startDate,
                 dueDate: dueDate,
-                priority: priority
+                priority: priority,
+                flagged: flagged,
+                url: url
             )
         }
     }
