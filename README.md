@@ -21,20 +21,23 @@ A Swift-based command-line tool to manage iCloud Reminders on macOS.
 
 ## Installation
 
-Clone the repository and build:
+### Using Make (Recommended)
+
+```bash
+git clone https://github.com/yancya/reminder-cli.git
+cd reminder-cli
+make install
+```
+
+This will build the release version and install it to `~/bin/reminder-cli`.
+
+### Manual Installation
 
 ```bash
 git clone https://github.com/yancya/reminder-cli.git
 cd reminder-cli
 swift build -c release
-```
-
-The built executable will be at `.build/release/reminder-cli`.
-
-Optionally, copy it to your PATH:
-
-```bash
-cp .build/release/reminder-cli /usr/local/bin/
+cp .build/release/reminder-cli ~/bin/  # or /usr/local/bin/
 ```
 
 ## Usage
@@ -147,16 +150,26 @@ These limitations are imposed by Apple's EventKit framework and affect all third
 
 ## Development
 
-### Build
+### Available Make Commands
 
 ```bash
-swift build
+make            # Show all available commands
+make build      # Build debug version
+make release    # Build release version
+make install    # Build and install to ~/bin
+make uninstall  # Remove from ~/bin
+make clean      # Remove build artifacts
+make run        # Build and run (debug)
+make version    # Show Swift version info
+make format     # Format code (requires swift-format)
 ```
 
-### Run without installing
+### Manual Build
 
 ```bash
-.build/debug/reminder-cli list
+swift build                      # Debug build
+swift build -c release          # Release build
+.build/debug/reminder-cli list  # Run debug version
 ```
 
 ## License
