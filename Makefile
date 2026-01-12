@@ -18,11 +18,12 @@ build: ## Build debug version
 release: ## Build release version
 	swift build -c release
 
-install: release ## Build and install to ~/bin
+install: release ## Build and symlink to ~/bin
 	@echo "Installing $(PRODUCT_NAME) to $(INSTALL_PATH)..."
 	@mkdir -p $(INSTALL_PATH)
-	@/bin/cp -f $(BUILD_DIR)/release/$(PRODUCT_NAME) $(INSTALL_PATH)/
-	@echo "✅ Installed to $(INSTALL_PATH)/$(PRODUCT_NAME)"
+	@rm -f $(INSTALL_PATH)/$(PRODUCT_NAME)
+	@ln -s $(PWD)/$(BUILD_DIR)/release/$(PRODUCT_NAME) $(INSTALL_PATH)/$(PRODUCT_NAME)
+	@echo "✅ Symlinked $(INSTALL_PATH)/$(PRODUCT_NAME) -> $(PWD)/$(BUILD_DIR)/release/$(PRODUCT_NAME)"
 
 uninstall: ## Remove installed binary
 	@echo "Removing $(INSTALL_PATH)/$(PRODUCT_NAME)..."

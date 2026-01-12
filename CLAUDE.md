@@ -77,6 +77,20 @@ See README.md for more details on EventKit limitations.
 - Keep error handling informative and user-friendly
 - Use emoji sparingly in output (only where it adds clarity)
 
+## Installation
+
+The project uses symlinks for installation rather than copying binaries:
+
+```bash
+# Install creates a symlink from ~/bin/reminder-cli to .build/release/reminder-cli
+make install
+
+# This means you only need to rebuild to update the installed version
+swift build -c release  # Changes are immediately reflected
+```
+
+**Important**: Don't run `swift package clean` or delete `.build/release` while using the symlinked binary.
+
 ## Testing
 
 Before creating a release:
@@ -84,7 +98,7 @@ Before creating a release:
 1. Test all CRUD operations (List, Show, Create, Update, Delete, Complete)
 2. Test all output formats (text, json, pretty-json, yaml)
 3. Verify the CLI works with `make run`
-4. Check that `make install` installs to `~/bin` correctly
+4. Check that `make install` creates the symlink correctly
 5. Test with real iCloud Reminders data
 
 ## Commit Message Format
