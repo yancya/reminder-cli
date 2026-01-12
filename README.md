@@ -5,11 +5,13 @@ A Swift-based command-line tool to manage iCloud Reminders on macOS.
 ## Features
 
 - 📋 **List** - View all reminders or filter by specific list
-- 🔍 **Show** - Display detailed information about a reminder
-- ➕ **Create** - Add new reminders with notes, due dates, and priority
+- 🔍 **Show** - Display detailed information about a reminder (including alarms)
+- ➕ **Create** - Add new reminders with notes, URLs, start/due dates, and priority
 - ✏️ **Update** - Modify existing reminders
 - 🗑️ **Delete** - Remove reminders (with confirmation prompt)
 - ✅ **Complete** - Mark reminders as done
+- 📍 **Location Alarms** - View location-based alarm details
+- 🔗 **URL Support** - Associate URLs with reminders
 
 ## Requirements
 
@@ -70,12 +72,19 @@ reminder-cli create "Buy milk"
 reminder-cli create "Buy milk" \
   --list "Shopping" \
   --notes "Get 2% milk" \
+  --start-date "2026-01-14" \
   --due-date "2026-01-15" \
-  --priority 5
+  --priority 5 \
+  --url "https://example.com/recipe"
 
-# Due date formats
+# Date formats (applies to both --start-date and --due-date)
 reminder-cli create "Task" --due-date "2026-01-15"           # Date only
 reminder-cli create "Task" --due-date "2026-01-15 14:30"     # Date and time
+
+# With URL
+reminder-cli create "Read article" \
+  --url "https://example.com/article" \
+  --notes "Important article"
 ```
 
 ### Update a reminder
@@ -91,6 +100,11 @@ reminder-cli update "Buy milk" \
 
 # Update priority (0=none, 1-4=high, 5=medium, 6-9=low)
 reminder-cli update "Buy milk" --priority 1
+
+# Update start date and URL
+reminder-cli update "Buy milk" \
+  --start-date "2026-01-14" \
+  --url "https://example.com/store"
 ```
 
 ### Complete a reminder
@@ -119,6 +133,17 @@ reminder-cli delete "Buy milk" --force
 ## Permissions
 
 On first run, reminder-cli will request access to your Reminders. You'll see a system permission dialog. Grant access to allow the tool to manage your reminders.
+
+## EventKit Limitations
+
+While reminder-cli supports many Reminders.app features, some are not available through Apple's EventKit framework:
+
+- **Flags** - The "flagged" indicator is not accessible via EventKit
+- **Tags** - Introduced in iOS 15, but not exposed in EventKit API
+- **Attachments** - Not accessible on EKReminder objects
+- **Images** - Cannot be added or viewed through EventKit
+
+These limitations are imposed by Apple's EventKit framework and affect all third-party reminder applications.
 
 ## Development
 
