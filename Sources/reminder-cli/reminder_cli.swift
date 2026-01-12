@@ -2,19 +2,51 @@ import ArgumentParser
 @preconcurrency import EventKit
 import Foundation
 
+// MARK: - Hidden Completion Helper
+
+extension ReminderCLI {
+    struct CompleteIDs: AsyncParsableCommand {
+        static let configuration = CommandConfiguration(
+            commandName: "_complete-ids",
+            abstract: "Internal command for shell completion",
+            shouldDisplay: false
+        )
+
+        mutating func run() async throws {
+            let store = ReminderStore()
+
+            do {
+                try await store.requestAccess()
+                let reminders = try await store.getAllReminders()
+
+                // Output short IDs (one per line) for completion
+                for reminder in reminders {
+                    let shortID = String(reminder.calendarItemIdentifier.prefix(8))
+                    let title = reminder.title ?? "(no title)"
+                    // Format: ID\tTitle (tab-separated for description)
+                    print("\(shortID)\t\(title)")
+                }
+            } catch {
+                // Silently fail - completion will just show no results
+            }
+        }
+    }
+}
+
 @main
 struct ReminderCLI: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "reminder-cli",
         abstract: "A CLI tool to manage iCloud Reminders",
-        version: "0.1.6",
+        version: "0.1.7",
         subcommands: [
             List.self,
             Show.self,
             Create.self,
             Update.self,
             Delete.self,
-            Complete.self
+            Complete.self,
+            CompleteIDs.self
         ]
     )
 }
@@ -68,7 +100,33 @@ extension ReminderCLI {
             abstract: "Show details of a specific reminder"
         )
 
-        @Argument(help: "The ID (full UUID or short prefix) of the reminder to show")
+        @Argument(
+            help: "The ID (full UUID or short prefix) of the reminder to show",
+            completion: .custom { _, _, _ in
+                // Call the hidden subcommand to get completion candidates
+                let process = Process()
+                process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+                process.arguments = ["reminder-cli", "_complete-ids"]
+
+                let pipe = Pipe()
+                process.standardOutput = pipe
+                process.standardError = nil
+
+                do {
+                    try process.run()
+                    process.waitUntilExit()
+
+                    let data = pipe.fileHandleForReading.readDataToEndOfFile()
+                    if let output = String(data: data, encoding: .utf8) {
+                        return output.split(separator: "\n").map { String($0.split(separator: "\t")[0]) }
+                    }
+                } catch {
+                    // Silently fail
+                }
+
+                return []
+            }
+        )
         var identifier: String
 
         @Option(name: .shortAndLong, help: "Output format (text, json, pretty-json, yaml)")
@@ -137,7 +195,26 @@ extension ReminderCLI {
             abstract: "Update an existing reminder"
         )
 
-        @Argument(help: "The ID (full UUID or short prefix) of the reminder to update")
+        @Argument(
+            help: "The ID (full UUID or short prefix) of the reminder to update",
+            completion: .custom { _, _, _ in
+                let process = Process()
+                process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+                process.arguments = ["reminder-cli", "_complete-ids"]
+                let pipe = Pipe()
+                process.standardOutput = pipe
+                process.standardError = nil
+                do {
+                    try process.run()
+                    process.waitUntilExit()
+                    let data = pipe.fileHandleForReading.readDataToEndOfFile()
+                    if let output = String(data: data, encoding: .utf8) {
+                        return output.split(separator: "\n").map { String($0.split(separator: "\t")[0]) }
+                    }
+                } catch {}
+                return []
+            }
+        )
         var identifier: String
 
         @Option(name: .shortAndLong, help: "New title")
@@ -185,7 +262,26 @@ extension ReminderCLI {
             abstract: "Delete a reminder"
         )
 
-        @Argument(help: "The ID (full UUID or short prefix) of the reminder to delete")
+        @Argument(
+            help: "The ID (full UUID or short prefix) of the reminder to delete",
+            completion: .custom { _, _, _ in
+                let process = Process()
+                process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+                process.arguments = ["reminder-cli", "_complete-ids"]
+                let pipe = Pipe()
+                process.standardOutput = pipe
+                process.standardError = nil
+                do {
+                    try process.run()
+                    process.waitUntilExit()
+                    let data = pipe.fileHandleForReading.readDataToEndOfFile()
+                    if let output = String(data: data, encoding: .utf8) {
+                        return output.split(separator: "\n").map { String($0.split(separator: "\t")[0]) }
+                    }
+                } catch {}
+                return []
+            }
+        )
         var identifier: String
 
         @Flag(name: .shortAndLong, help: "Skip confirmation")
@@ -206,7 +302,26 @@ extension ReminderCLI {
             abstract: "Mark a reminder as completed"
         )
 
-        @Argument(help: "The ID (full UUID or short prefix) of the reminder to complete")
+        @Argument(
+            help: "The ID (full UUID or short prefix) of the reminder to complete",
+            completion: .custom { _, _, _ in
+                let process = Process()
+                process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+                process.arguments = ["reminder-cli", "_complete-ids"]
+                let pipe = Pipe()
+                process.standardOutput = pipe
+                process.standardError = nil
+                do {
+                    try process.run()
+                    process.waitUntilExit()
+                    let data = pipe.fileHandleForReading.readDataToEndOfFile()
+                    if let output = String(data: data, encoding: .utf8) {
+                        return output.split(separator: "\n").map { String($0.split(separator: "\t")[0]) }
+                    }
+                } catch {}
+                return []
+            }
+        )
         var identifier: String
 
         mutating func run() async throws {

@@ -111,6 +111,21 @@ class ReminderStore {
         }
     }
 
+    // MARK: - Helper for Completion
+
+    func getAllReminders() async throws -> [EKReminder] {
+        let calendars = eventStore.calendars(for: .reminder)
+        var allReminders: [EKReminder] = []
+
+        for calendar in calendars {
+            let predicate = eventStore.predicateForReminders(in: [calendar])
+            let reminders = try await fetchReminders(matching: predicate)
+            allReminders.append(contentsOf: reminders)
+        }
+
+        return allReminders
+    }
+
     // MARK: - List Operations
 
     func listAllReminders(showCompleted: Bool, format: OutputFormat = .text, sortBy: SortOption = .dueDate) async throws {
