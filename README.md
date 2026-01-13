@@ -141,6 +141,7 @@ While reminder-cli supports many Reminders.app features, some are not available 
 
 - **Flags** - The "flagged" indicator is not accessible via EventKit
 - **Tags** - Introduced in iOS 15, but not exposed in EventKit API
+- **Sections** - Introduced in iOS 17 / macOS Sonoma, but not exposed in EventKit API
 - **Attachments** - Not accessible on EKReminder objects
 - **Images** - Cannot be added or viewed through EventKit
 

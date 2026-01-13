@@ -57,18 +57,7 @@ git push origin v0.1.2
 
 ## EventKit API Limitations
 
-The following features are NOT available through Apple's EventKit framework:
-
-- **Flags** - The "flagged" indicator is not accessible via EventKit
-- **Tags** - Introduced in iOS 15, but not exposed in EventKit API
-- **Attachments** - Not accessible on EKReminder objects
-
-These limitations have been thoroughly investigated and confirmed through:
-- Compilation tests
-- Objective-C selector checks
-- Official Apple documentation review
-
-See README.md for more details on EventKit limitations.
+Some Reminders.app features (Flags, Tags, Sections, Attachments, etc.) are NOT available through Apple's EventKit framework. See README.md for the full list and details.
 
 ## Code Style
 
