@@ -18,16 +18,23 @@ jobs:
       - name: Setup Xcode
         uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: latest-stable
+          xcode-version: '26'
 
       - name: Build release binary
         run: |
           swift build -c release
-          cp .build/release/reminder-cli reminder-cli-macos
+
+      - name: Generate shell completions
+        run: |
+          mkdir -p dist/completions/zsh dist/completions/bash dist/completions/fish
+          cp .build/release/reminder-cli dist/reminder-cli
+          ./dist/reminder-cli --generate-completion-script zsh > dist/completions/zsh/_reminder-cli
+          ./dist/reminder-cli --generate-completion-script bash > dist/completions/bash/reminder-cli
+          ./dist/reminder-cli --generate-completion-script fish > dist/completions/fish/reminder-cli.fish
 
       - name: Create tarball
         run: |
-          tar czf reminder-cli-macos.tar.gz reminder-cli-macos
+          cd dist && tar czf ../reminder-cli-macos.tar.gz .
 
       - name: Calculate SHA256
         id: sha256
