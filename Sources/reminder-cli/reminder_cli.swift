@@ -256,6 +256,9 @@ extension ReminderCLI {
         @Option(name: .shortAndLong, help: "New URL")
         var url: String?
 
+        @Option(name: .shortAndLong, help: "Move to a different list")
+        var list: String?
+
         mutating func run() async throws {
             let store = ReminderStore()
             try await store.requestAccess()
@@ -266,7 +269,8 @@ extension ReminderCLI {
                 startDate: startDate,
                 dueDate: dueDate,
                 priority: priority,
-                url: url
+                url: url,
+                listName: list
             )
         }
     }
