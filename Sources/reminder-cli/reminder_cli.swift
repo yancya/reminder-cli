@@ -41,6 +41,7 @@ struct ReminderCLI: AsyncParsableCommand {
         version: "1.0.1",
         subcommands: [
             List.self,
+            Lists.self,
             Show.self,
             Create.self,
             Update.self,
@@ -88,6 +89,66 @@ extension ReminderCLI {
                 try await store.listReminders(in: listName, showCompleted: completed, format: format, sortBy: sort)
             } else {
                 try await store.listAllReminders(showCompleted: completed, format: format, sortBy: sort)
+            }
+        }
+    }
+}
+
+// MARK: - Lists Command Group
+extension ReminderCLI {
+    struct Lists: AsyncParsableCommand {
+        static let configuration = CommandConfiguration(
+            abstract: "Manage reminder lists",
+            subcommands: [ListAll.self, Create.self, Delete.self],
+            defaultSubcommand: ListAll.self
+        )
+
+        struct ListAll: AsyncParsableCommand {
+            static let configuration = CommandConfiguration(
+                commandName: "list",
+                abstract: "Show all reminder lists"
+            )
+
+            @Option(name: .shortAndLong, help: "Output format (text, json, pretty-json, yaml)")
+            var format: OutputFormat = .text
+
+            mutating func run() async throws {
+                let store = ReminderStore()
+                try await store.requestAccess()
+                try await store.showAllLists(format: format)
+            }
+        }
+
+        struct Create: AsyncParsableCommand {
+            static let configuration = CommandConfiguration(
+                abstract: "Create a new reminder list"
+            )
+
+            @Argument(help: "The name of the list to create")
+            var name: String
+
+            mutating func run() async throws {
+                let store = ReminderStore()
+                try await store.requestAccess()
+                try store.createList(name: name)
+            }
+        }
+
+        struct Delete: AsyncParsableCommand {
+            static let configuration = CommandConfiguration(
+                abstract: "Delete a reminder list"
+            )
+
+            @Argument(help: "The name of the list to delete")
+            var name: String
+
+            @Flag(name: .shortAndLong, help: "Skip confirmation")
+            var force: Bool = false
+
+            mutating func run() async throws {
+                let store = ReminderStore()
+                try await store.requestAccess()
+                try store.deleteList(name: name, force: force)
             }
         }
     }

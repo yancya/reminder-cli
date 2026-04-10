@@ -9,6 +9,8 @@ enum ReminderStoreError: LocalizedError {
     case noAvailableLists
     case invalidDateFormat(String)
     case invalidPriority(Int)
+    case listAlreadyExists(String)
+    case cannotDeleteList(String)
 
     var errorDescription: String? {
         switch self {
@@ -34,6 +36,10 @@ enum ReminderStoreError: LocalizedError {
             return "Invalid date format: \(format). Use YYYY-MM-DD or YYYY-MM-DD HH:MM"
         case .invalidPriority(let priority):
             return "Invalid priority: \(priority). Use 0-9 (0=none, 1-4=high, 5=medium, 6-9=low)"
+        case .listAlreadyExists(let name):
+            return "List already exists: \(name)"
+        case .cannotDeleteList(let name):
+            return "Failed to delete list: \(name)"
         }
     }
 }
@@ -187,6 +193,84 @@ class ReminderStore {
             let formatter = OutputFormatter(format: format)
             let outputs = filteredReminders.sorted(by: sortReminders(by: sortBy)).map { formatter.convertReminder($0) }
             try formatter.output(reminders: outputs)
+        }
+    }
+
+    // MARK: - Lists Operations
+
+    func showAllLists(format: OutputFormat = .text) async throws {
+        let calendars = eventStore.calendars(for: .reminder)
+
+        if format == .text {
+            print("\n📋 Reminder Lists")
+            print("─────────────────────────────────────")
+
+            for calendar in calendars {
+                let predicate = eventStore.predicateForReminders(in: [calendar])
+                let reminders = try await fetchReminders(matching: predicate)
+                let incompleteCount = reminders.filter { !$0.isCompleted }.count
+                let isDefault = calendar == eventStore.defaultCalendarForNewReminders()
+                let defaultMark = isDefault ? " (default)" : ""
+                print("  \(calendar.title)\(defaultMark) — \(incompleteCount) reminder(s)")
+            }
+            print()
+        } else {
+            var listOutputs: [[String: Any]] = []
+            for calendar in calendars {
+                let predicate = eventStore.predicateForReminders(in: [calendar])
+                let reminders = try await fetchReminders(matching: predicate)
+                let incompleteCount = reminders.filter { !$0.isCompleted }.count
+                let isDefault = calendar == eventStore.defaultCalendarForNewReminders()
+                listOutputs.append([
+                    "name": calendar.title,
+                    "reminderCount": incompleteCount,
+                    "isDefault": isDefault,
+                ])
+            }
+
+            let formatter = OutputFormatter(format: format)
+            try formatter.outputLists(listOutputs)
+        }
+    }
+
+    func createList(name: String) throws {
+        if findCalendar(named: name) != nil {
+            throw ReminderStoreError.listAlreadyExists(name)
+        }
+
+        let newCalendar = EKCalendar(for: .reminder, eventStore: eventStore)
+        newCalendar.title = name
+
+        if let defaultCalendar = eventStore.defaultCalendarForNewReminders() {
+            newCalendar.source = defaultCalendar.source
+        } else if let source = eventStore.sources.first(where: { $0.sourceType == .calDAV }) {
+            newCalendar.source = source
+        } else if let source = eventStore.sources.first(where: { $0.sourceType == .local }) {
+            newCalendar.source = source
+        }
+
+        try eventStore.saveCalendar(newCalendar, commit: true)
+        print("✅ Created list: \(name)")
+    }
+
+    func deleteList(name: String, force: Bool) throws {
+        guard let calendar = findCalendar(named: name) else {
+            throw ReminderStoreError.listNotFound(name)
+        }
+
+        if !force {
+            print("Are you sure you want to delete list '\(calendar.title)' and all its reminders? [y/N]: ", terminator: "")
+            guard let response = readLine()?.lowercased(), response == "y" || response == "yes" else {
+                print("Cancelled.")
+                return
+            }
+        }
+
+        do {
+            try eventStore.removeCalendar(calendar, commit: true)
+            print("🗑️  Deleted list: \(name)")
+        } catch {
+            throw ReminderStoreError.cannotDeleteList(name)
         }
     }
 

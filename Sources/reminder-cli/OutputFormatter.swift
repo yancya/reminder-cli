@@ -37,6 +37,12 @@ struct AlarmOutput: Codable {
     let proximity: String? // "arriving", "leaving" for location-based alarms
 }
 
+struct ListOutput: Codable {
+    let name: String
+    let reminderCount: Int
+    let isDefault: Bool
+}
+
 struct RecurrenceRuleOutput: Codable {
     let frequency: String
     let interval: Int
@@ -319,6 +325,29 @@ struct OutputFormatter {
 
     private func outputYAML(reminders: [ReminderOutput]) throws {
         try outputYAML(data: reminders)
+    }
+
+    // MARK: - Lists Output
+
+    func outputLists(_ lists: [[String: Any]]) throws {
+        let codableLists = lists.map { dict -> ListOutput in
+            ListOutput(
+                name: dict["name"] as? String ?? "",
+                reminderCount: dict["reminderCount"] as? Int ?? 0,
+                isDefault: dict["isDefault"] as? Bool ?? false
+            )
+        }
+
+        switch format {
+        case .text:
+            break // handled by caller
+        case .json:
+            try outputJSON(data: codableLists, pretty: false)
+        case .prettyJson:
+            try outputJSON(data: codableLists, pretty: true)
+        case .yaml:
+            try outputYAML(data: codableLists)
+        }
     }
 
     // MARK: - Helper Methods
