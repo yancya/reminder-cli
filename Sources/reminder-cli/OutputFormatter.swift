@@ -108,19 +108,30 @@ struct OutputFormatter {
     }
 
     private func hexColor(from cgColor: CGColor?) -> String? {
-        guard let cgColor = cgColor else {
+        guard let cgColor = cgColor, let components = cgColor.components else {
             return nil
         }
-        // EKCalendar.cgColor isn't guaranteed to be in an RGB colorspace
-        // (e.g. grayscale colors have only 1-2 components); convert first
-        // so the RGB component indexing below is always valid.
-        let rgbColor = cgColor.converted(to: CGColorSpaceCreateDeviceRGB(), intent: .defaultIntent, options: nil) ?? cgColor
-        guard let components = rgbColor.components, components.count >= 3 else {
+
+        // EKCalendar.cgColor isn't guaranteed to be in an RGB colorspace.
+        // CGColor.converted(to:) needs color management that isn't reliably
+        // available on headless CI runners, so interpret components
+        // ourselves based on the colorspace model instead.
+        let rgb: (r: CGFloat, g: CGFloat, b: CGFloat)?
+        switch cgColor.colorSpace?.model {
+        case .monochrome where components.count >= 1:
+            rgb = (components[0], components[0], components[0])
+        case .rgb where components.count >= 3:
+            rgb = (components[0], components[1], components[2])
+        default:
+            rgb = components.count >= 3 ? (components[0], components[1], components[2]) : nil
+        }
+
+        guard let rgb = rgb else {
             return nil
         }
-        let r = Int((components[0] * 255).rounded())
-        let g = Int((components[1] * 255).rounded())
-        let b = Int((components[2] * 255).rounded())
+        let r = Int((rgb.r * 255).rounded())
+        let g = Int((rgb.g * 255).rounded())
+        let b = Int((rgb.b * 255).rounded())
         return String(format: "#%02X%02X%02X", r, g, b)
     }
 
