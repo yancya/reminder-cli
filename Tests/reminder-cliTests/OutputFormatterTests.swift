@@ -1,3 +1,4 @@
+@preconcurrency import EventKit
 import XCTest
 @testable import reminder_cli
 
@@ -181,5 +182,95 @@ final class OutputFormatterTests: XCTestCase {
         XCTAssertTrue(output.contains("Alarms:     2"))
         XCTAssertTrue(output.contains("10 minutes before"))
         XCTAssertTrue(output.contains("📍 Home (arriving)"))
+    }
+
+    // MARK: - delete confirmation
+
+    func testDeleteConfirmationJSONOutput() throws {
+        let formatter = OutputFormatter(format: .json)
+        let confirmation = DeleteConfirmationOutput(deleted: true, id: "TEST-ID", title: "Buy milk")
+        let output = try captureStdout {
+            try formatter.output(deleteConfirmation: confirmation)
+        }
+        let data = output.data(using: .utf8)!
+        let object = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        XCTAssertEqual(object?["deleted"] as? Bool, true)
+        XCTAssertEqual(object?["id"] as? String, "TEST-ID")
+        XCTAssertEqual(object?["title"] as? String, "Buy milk")
+    }
+
+    func testDeleteConfirmationYAMLOutput() throws {
+        let formatter = OutputFormatter(format: .yaml)
+        let confirmation = DeleteConfirmationOutput(deleted: true, id: "TEST-ID", title: "Buy milk")
+        let output = try captureStdout {
+            try formatter.output(deleteConfirmation: confirmation)
+        }
+        XCTAssertTrue(output.contains("deleted: true"))
+        XCTAssertTrue(output.contains("id: TEST-ID"))
+    }
+
+    // MARK: - lists
+
+    func testListsJSONOutput() throws {
+        let formatter = OutputFormatter(format: .json)
+        let lists = [
+            ListOutput(name: "Shopping", calendarIdentifier: "CAL-1", color: "#FF0000", reminderCount: 3),
+            ListOutput(name: "Work", calendarIdentifier: "CAL-2", color: nil, reminderCount: nil)
+        ]
+        let output = try captureStdout {
+            try formatter.output(lists: lists)
+        }
+        let data = output.data(using: .utf8)!
+        let array = try JSONSerialization.jsonObject(with: data) as? [[String: Any]]
+        XCTAssertEqual(array?.map { $0["name"] as? String }, ["Shopping", "Work"])
+        XCTAssertEqual(array?[0]["reminderCount"] as? Int, 3)
+        XCTAssertNil(array?[1]["reminderCount"])
+    }
+
+    func testListsTextOutputShowsCountOnlyWhenPresent() throws {
+        let formatter = OutputFormatter(format: .text)
+        let lists = [
+            ListOutput(name: "Shopping", calendarIdentifier: "CAL-1", color: nil, reminderCount: 3),
+            ListOutput(name: "Work", calendarIdentifier: "CAL-2", color: nil, reminderCount: nil)
+        ]
+        let output = try captureStdout {
+            try formatter.output(lists: lists)
+        }
+        XCTAssertTrue(output.contains("Shopping (3)"))
+        XCTAssertTrue(output.contains("Work"))
+        XCTAssertFalse(output.contains("Work ("))
+    }
+
+    func testListsTextOutputForEmptyList() throws {
+        let formatter = OutputFormatter(format: .text)
+        let output = try captureStdout {
+            try formatter.output(lists: [])
+        }
+        XCTAssertTrue(output.contains("(no lists)"))
+    }
+
+    func testConvertCalendarHandlesGrayscaleColorSpace() {
+        let formatter = OutputFormatter(format: .json)
+        let store = EKEventStore()
+        let calendar = EKCalendar(for: .reminder, eventStore: store)
+        calendar.title = "Grayscale List"
+        // Grayscale colorspace has only 2 components (white, alpha), unlike
+        // RGB's 3+. convertCalendar must not crash or silently drop the
+        // color here.
+        calendar.cgColor = CGColor(gray: 0.5, alpha: 1.0)
+
+        let output = formatter.convertCalendar(calendar, reminderCount: nil)
+
+        // Colorspace conversion applies gamma correction, so the exact hex
+        // value isn't 1:1 with the 0.5 gray input. What matters is that the
+        // conversion succeeded (non-nil) with equal R/G/B channels.
+        guard let hex = output.color, hex.count == 7, hex.hasPrefix("#") else {
+            return XCTFail("Expected a 6-digit hex color, got \(output.color ?? "nil")")
+        }
+        let r = hex[hex.index(hex.startIndex, offsetBy: 1)..<hex.index(hex.startIndex, offsetBy: 3)]
+        let g = hex[hex.index(hex.startIndex, offsetBy: 3)..<hex.index(hex.startIndex, offsetBy: 5)]
+        let b = hex[hex.index(hex.startIndex, offsetBy: 5)..<hex.index(hex.startIndex, offsetBy: 7)]
+        XCTAssertEqual(r, g)
+        XCTAssertEqual(g, b)
     }
 }

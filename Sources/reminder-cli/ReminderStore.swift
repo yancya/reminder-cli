@@ -171,6 +171,29 @@ class ReminderStore {
         }
     }
 
+    // MARK: - Lists Operation
+
+    func listCalendars(includeCount: Bool, format: OutputFormat = .text) async throws {
+        let calendars = eventStore.calendars(for: .reminder)
+        let formatter = OutputFormatter(format: format)
+
+        var outputs: [ListOutput] = []
+        for calendar in calendars {
+            var count: Int?
+            if includeCount {
+                let predicate = eventStore.predicateForReminders(in: [calendar])
+                count = try await fetchReminders(matching: predicate).count
+            }
+            outputs.append(formatter.convertCalendar(calendar, reminderCount: count))
+        }
+
+        if format == .text {
+            print("\n📋 Lists")
+            print("─────────────────────────────────────")
+        }
+        try formatter.output(lists: outputs)
+    }
+
     // MARK: - Show Operation
 
     func showReminder(identifier: String, format: OutputFormat = .text) async throws {
@@ -194,7 +217,8 @@ class ReminderStore {
         startDate: String?,
         dueDate: String?,
         priority: Int?,
-        url: String?
+        url: String?,
+        format: OutputFormat = .text
     ) async throws {
         let calendar: EKCalendar
         if let listName = listName {
@@ -238,10 +262,15 @@ class ReminderStore {
 
         try eventStore.save(reminder, commit: true)
 
-        print("✅ Created reminder: \(title)")
-        print("   ID: \(reminder.calendarItemIdentifier)")
-        if let list = reminder.calendar?.title {
-            print("   List: \(list)")
+        if format == .text {
+            print("✅ Created reminder: \(title)")
+            print("   ID: \(reminder.calendarItemIdentifier)")
+            if let list = reminder.calendar?.title {
+                print("   List: \(list)")
+            }
+        } else {
+            let formatter = OutputFormatter(format: format)
+            try formatter.output(reminder: formatter.convertReminder(reminder))
         }
     }
 
@@ -254,7 +283,8 @@ class ReminderStore {
         startDate: String?,
         dueDate: String?,
         priority: Int?,
-        url: String?
+        url: String?,
+        format: OutputFormat = .text
     ) async throws {
         let reminder = try await findReminder(identifier: identifier)
 
@@ -287,16 +317,23 @@ class ReminderStore {
 
         try eventStore.save(reminder, commit: true)
 
-        print("✅ Updated reminder: \(reminder.title ?? "(no title)")")
+        if format == .text {
+            print("✅ Updated reminder: \(reminder.title ?? "(no title)")")
+        } else {
+            let formatter = OutputFormatter(format: format)
+            try formatter.output(reminder: formatter.convertReminder(reminder))
+        }
     }
 
     // MARK: - Delete Operation
 
-    func deleteReminder(identifier: String, force: Bool) async throws {
+    func deleteReminder(identifier: String, force: Bool, format: OutputFormat = .text) async throws {
         let reminder = try await findReminder(identifier: identifier)
+        let title = reminder.title ?? "(no title)"
+        let id = reminder.calendarItemIdentifier
 
         if !force {
-            print("Are you sure you want to delete '\(reminder.title ?? "(no title)")'? [y/N]: ", terminator: "")
+            print("Are you sure you want to delete '\(title)'? [y/N]: ", terminator: "")
             guard let response = readLine()?.lowercased(), response == "y" || response == "yes" else {
                 print("Cancelled.")
                 return
@@ -304,18 +341,29 @@ class ReminderStore {
         }
 
         try eventStore.remove(reminder, commit: true)
-        print("🗑️  Deleted reminder: \(reminder.title ?? "(no title)")")
+
+        if format == .text {
+            print("🗑️  Deleted reminder: \(title)")
+        } else {
+            let formatter = OutputFormatter(format: format)
+            try formatter.output(deleteConfirmation: DeleteConfirmationOutput(deleted: true, id: id, title: title))
+        }
     }
 
     // MARK: - Complete Operation
 
-    func completeReminder(identifier: String) async throws {
+    func completeReminder(identifier: String, format: OutputFormat = .text) async throws {
         let reminder = try await findReminder(identifier: identifier)
 
         reminder.isCompleted = true
         try eventStore.save(reminder, commit: true)
 
-        print("✅ Completed reminder: \(reminder.title ?? "(no title)")")
+        if format == .text {
+            print("✅ Completed reminder: \(reminder.title ?? "(no title)")")
+        } else {
+            let formatter = OutputFormatter(format: format)
+            try formatter.output(reminder: formatter.convertReminder(reminder))
+        }
     }
 
     // MARK: - Helper Methods

@@ -38,7 +38,7 @@ struct ReminderCLI: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "reminder-cli",
         abstract: "A CLI tool to manage iCloud Reminders",
-        version: "1.0.1",
+        version: "1.1.0",
         subcommands: [
             List.self,
             Show.self,
@@ -46,6 +46,7 @@ struct ReminderCLI: AsyncParsableCommand {
             Update.self,
             Delete.self,
             Complete.self,
+            Lists.self,
             CompleteIDs.self
         ]
     )
@@ -153,6 +154,27 @@ extension ReminderCLI {
     }
 }
 
+// MARK: - Lists Command
+extension ReminderCLI {
+    struct Lists: AsyncParsableCommand {
+        static let configuration = CommandConfiguration(
+            abstract: "List all reminder lists"
+        )
+
+        @Flag(name: .shortAndLong, help: "Include reminder count per list (all reminders, including completed; slower)")
+        var count: Bool = false
+
+        @Option(name: .shortAndLong, help: "Output format (text, json, pretty-json, yaml)")
+        var format: OutputFormat = .text
+
+        mutating func run() async throws {
+            let store = ReminderStore()
+            try await store.requestAccess()
+            try await store.listCalendars(includeCount: count, format: format)
+        }
+    }
+}
+
 // MARK: - Create Command
 extension ReminderCLI {
     struct Create: AsyncParsableCommand {
@@ -181,6 +203,9 @@ extension ReminderCLI {
         @Option(name: .shortAndLong, help: "URL associated with the reminder")
         var url: String?
 
+        @Option(name: .shortAndLong, help: "Output format (text, json, pretty-json, yaml)")
+        var format: OutputFormat = .text
+
         mutating func run() async throws {
             let store = ReminderStore()
             try await store.requestAccess()
@@ -191,7 +216,8 @@ extension ReminderCLI {
                 startDate: startDate,
                 dueDate: dueDate,
                 priority: priority,
-                url: url
+                url: url,
+                format: format
             )
         }
     }
@@ -256,6 +282,9 @@ extension ReminderCLI {
         @Option(name: .shortAndLong, help: "New URL")
         var url: String?
 
+        @Option(name: .shortAndLong, help: "Output format (text, json, pretty-json, yaml)")
+        var format: OutputFormat = .text
+
         mutating func run() async throws {
             let store = ReminderStore()
             try await store.requestAccess()
@@ -266,7 +295,8 @@ extension ReminderCLI {
                 startDate: startDate,
                 dueDate: dueDate,
                 priority: priority,
-                url: url
+                url: url,
+                format: format
             )
         }
     }
@@ -316,10 +346,13 @@ extension ReminderCLI {
         @Flag(name: .shortAndLong, help: "Skip confirmation")
         var force: Bool = false
 
+        @Option(name: .long, help: "Output format (text, json, pretty-json, yaml)")
+        var format: OutputFormat = .text
+
         mutating func run() async throws {
             let store = ReminderStore()
             try await store.requestAccess()
-            try await store.deleteReminder(identifier: identifier, force: force)
+            try await store.deleteReminder(identifier: identifier, force: force, format: format)
         }
     }
 }
@@ -365,10 +398,13 @@ extension ReminderCLI {
         )
         var identifier: String
 
+        @Option(name: .shortAndLong, help: "Output format (text, json, pretty-json, yaml)")
+        var format: OutputFormat = .text
+
         mutating func run() async throws {
             let store = ReminderStore()
             try await store.requestAccess()
-            try await store.completeReminder(identifier: identifier)
+            try await store.completeReminder(identifier: identifier, format: format)
         }
     }
 }
