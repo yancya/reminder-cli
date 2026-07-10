@@ -249,28 +249,32 @@ final class OutputFormatterTests: XCTestCase {
         XCTAssertTrue(output.contains("(no lists)"))
     }
 
-    func testConvertCalendarHandlesGrayscaleColorSpace() {
+    // MARK: - hexColor
+
+    // Exercises hexColor directly with synthetic CGColor values rather than
+    // going through a real EKCalendar: constructing/mutating EKCalendar
+    // properties needs EventKit permissions that aren't granted on CI
+    // runners (see README's Testing section), so cgColor round-trips
+    // through EKCalendar aren't reliable there.
+
+    func testHexColorFromRGBColorspace() {
         let formatter = OutputFormatter(format: .json)
-        let store = EKEventStore()
-        let calendar = EKCalendar(for: .reminder, eventStore: store)
-        calendar.title = "Grayscale List"
-        // Grayscale colorspace has only 2 components (white, alpha), unlike
-        // RGB's 3+. convertCalendar must not crash or silently drop the
-        // color here.
-        calendar.cgColor = CGColor(gray: 0.5, alpha: 1.0)
+        let rgbSpace = CGColorSpaceCreateDeviceRGB()
+        let color = CGColor(colorSpace: rgbSpace, components: [1.0, 0.0, 0.0, 1.0])!
 
-        let output = formatter.convertCalendar(calendar, reminderCount: nil)
+        XCTAssertEqual(formatter.hexColor(from: color), "#FF0000")
+    }
 
-        // Colorspace conversion applies gamma correction, so the exact hex
-        // value isn't 1:1 with the 0.5 gray input. What matters is that the
-        // conversion succeeded (non-nil) with equal R/G/B channels.
-        guard let hex = output.color, hex.count == 7, hex.hasPrefix("#") else {
-            return XCTFail("Expected a 6-digit hex color, got \(output.color ?? "nil")")
-        }
-        let r = hex[hex.index(hex.startIndex, offsetBy: 1)..<hex.index(hex.startIndex, offsetBy: 3)]
-        let g = hex[hex.index(hex.startIndex, offsetBy: 3)..<hex.index(hex.startIndex, offsetBy: 5)]
-        let b = hex[hex.index(hex.startIndex, offsetBy: 5)..<hex.index(hex.startIndex, offsetBy: 7)]
-        XCTAssertEqual(r, g)
-        XCTAssertEqual(g, b)
+    func testHexColorFromGrayscaleColorspace() {
+        let formatter = OutputFormatter(format: .json)
+        let graySpace = CGColorSpaceCreateDeviceGray()
+        let color = CGColor(colorSpace: graySpace, components: [0.5, 1.0])!
+
+        XCTAssertEqual(formatter.hexColor(from: color), "#808080")
+    }
+
+    func testHexColorFromNilReturnsNil() {
+        let formatter = OutputFormatter(format: .json)
+        XCTAssertNil(formatter.hexColor(from: nil))
     }
 }

@@ -107,7 +107,7 @@ struct OutputFormatter {
         )
     }
 
-    private func hexColor(from cgColor: CGColor?) -> String? {
+    func hexColor(from cgColor: CGColor?) -> String? {
         guard let cgColor = cgColor, let components = cgColor.components else {
             return nil
         }
