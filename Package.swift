@@ -20,13 +20,10 @@ let package = Package(
             dependencies: [
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
                 .product(name: "Yams", package: "Yams")
-            ],
-            swiftSettings: [
-                .swiftLanguageMode(.v5)
             ]
         ),
         .testTarget(
-            name: "reminder_cliTests",
+            name: "reminder-cliTests",
             dependencies: ["reminder-cli"]
         ),
     ]

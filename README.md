@@ -181,6 +181,14 @@ swift build -c release          # Release build
 .build/debug/reminder-cli list  # Run debug version
 ```
 
+### Testing
+
+```bash
+swift test  # Run the unit test suite
+```
+
+Tests cover EventKit-independent logic only (`OutputFormatter`, date parsing, sort comparisons) since CI cannot grant Reminders access.
+
 ## License
 
 [WTFPL](http://www.wtfpl.net/) - Do What The Fuck You Want To Public License

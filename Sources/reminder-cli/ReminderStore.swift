@@ -72,32 +72,13 @@ class ReminderStore {
     }
 
     private func getReminderStatus(_ reminder: EKReminder) -> ReminderStatus {
-        if reminder.isCompleted {
-            return .completed
+        switch ReminderSorting.status(isCompleted: reminder.isCompleted, dueDate: reminder.dueDateComponents?.date) {
+        case .completed: return .completed
+        case .overdue: return .overdue
+        case .dueToday: return .dueToday
+        case .scheduled: return .scheduled
+        case .pending: return .pending
         }
-
-        guard let dueDate = reminder.dueDateComponents?.date else {
-            return .pending
-        }
-
-        let calendar = Calendar.current
-        let now = Date()
-
-        // Check if overdue (due date is in the past)
-        if dueDate < now {
-            // Consider it overdue if it's not today
-            if !calendar.isDateInToday(dueDate) {
-                return .overdue
-            }
-        }
-
-        // Check if due today
-        if calendar.isDateInToday(dueDate) {
-            return .dueToday
-        }
-
-        // Future due date
-        return .scheduled
     }
 
     func requestAccess() async throws {
@@ -237,11 +218,11 @@ class ReminderStore {
         reminder.notes = notes
 
         if let startDateString = startDate {
-            reminder.startDateComponents = try DateParser.parseDateComponents(from: startDateString)
+            reminder.startDateComponents = try parseDateComponents(from: startDateString)
         }
 
         if let dueDateString = dueDate {
-            reminder.dueDateComponents = try DateParser.parseDateComponents(from: dueDateString)
+            reminder.dueDateComponents = try parseDateComponents(from: dueDateString)
         }
 
         if let priority = priority {
@@ -286,11 +267,11 @@ class ReminderStore {
         }
 
         if let startDateString = startDate {
-            reminder.startDateComponents = try DateParser.parseDateComponents(from: startDateString)
+            reminder.startDateComponents = try parseDateComponents(from: startDateString)
         }
 
         if let dueDateString = dueDate {
-            reminder.dueDateComponents = try DateParser.parseDateComponents(from: dueDateString)
+            reminder.dueDateComponents = try parseDateComponents(from: dueDateString)
         }
 
         if let priority = priority {
@@ -385,84 +366,15 @@ class ReminderStore {
         throw ReminderStoreError.reminderNotFound(identifier)
     }
 
+    private func parseDateComponents(from string: String) throws -> DateComponents {
+        guard let components = DateParsing.parse(string) else {
+            throw ReminderStoreError.invalidDateFormat(string)
+        }
+        return components
+    }
+
     private func sortReminders(by sortOption: SortOption) -> (EKReminder, EKReminder) -> Bool {
-        return { lhs, rhs in
-            // Always sort completed reminders to the end
-            if lhs.isCompleted != rhs.isCompleted {
-                return !lhs.isCompleted
-            }
-
-            switch sortOption {
-            case .dueDate:
-                return self.sortByDueDate(lhs, rhs)
-            case .priority:
-                return self.sortByPriority(lhs, rhs)
-            case .title:
-                return self.sortByTitle(lhs, rhs)
-            case .created:
-                return self.sortByCreated(lhs, rhs)
-            case .status:
-                return self.sortByStatus(lhs, rhs)
-            }
-        }
-    }
-
-    private func sortByDueDate(_ lhs: EKReminder, _ rhs: EKReminder) -> Bool {
-        if let lhsDate = lhs.dueDateComponents?.date, let rhsDate = rhs.dueDateComponents?.date {
-            return lhsDate < rhsDate
-        }
-        if lhs.dueDateComponents != nil {
-            return true
-        }
-        if rhs.dueDateComponents != nil {
-            return false
-        }
-        return sortByTitle(lhs, rhs)
-    }
-
-    private func sortByPriority(_ lhs: EKReminder, _ rhs: EKReminder) -> Bool {
-        if lhs.priority != rhs.priority {
-            // Lower number = higher priority (1=high, 5=medium, 9=low, 0=none)
-            // Sort: high (1-4) → medium (5) → low (6-9) → none (0)
-            if lhs.priority == 0 { return false }
-            if rhs.priority == 0 { return true }
-            return lhs.priority < rhs.priority
-        }
-        return sortByDueDate(lhs, rhs)
-    }
-
-    private func sortByTitle(_ lhs: EKReminder, _ rhs: EKReminder) -> Bool {
-        return (lhs.title ?? "").lowercased() < (rhs.title ?? "").lowercased()
-    }
-
-    private func sortByCreated(_ lhs: EKReminder, _ rhs: EKReminder) -> Bool {
-        if let lhsDate = lhs.creationDate, let rhsDate = rhs.creationDate {
-            return lhsDate > rhsDate // Newer first
-        }
-        if lhs.creationDate != nil {
-            return true
-        }
-        if rhs.creationDate != nil {
-            return false
-        }
-        return sortByTitle(lhs, rhs)
-    }
-
-    private func sortByStatus(_ lhs: EKReminder, _ rhs: EKReminder) -> Bool {
-        let lhsStatus = getReminderStatus(lhs)
-        let rhsStatus = getReminderStatus(rhs)
-
-        // Define priority order for statuses
-        let statusOrder: [ReminderStatus] = [.overdue, .dueToday, .scheduled, .pending, .completed]
-
-        if let lhsIndex = statusOrder.firstIndex(of: lhsStatus),
-           let rhsIndex = statusOrder.firstIndex(of: rhsStatus) {
-            if lhsIndex != rhsIndex {
-                return lhsIndex < rhsIndex
-            }
-        }
-
-        return sortByDueDate(lhs, rhs)
+        return ReminderSorting.comparator(for: sortOption)
     }
 
     private func printReminderSummary(_ reminder: EKReminder) {
