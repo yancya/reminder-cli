@@ -2,9 +2,14 @@
 import Foundation
 
 enum ReminderStoreError: LocalizedError {
+    struct Match: Sendable {
+        let id: String
+        let title: String?
+    }
+
     case accessDenied
     case reminderNotFound(String)
-    case ambiguousIdentifier(String, [EKReminder])
+    case ambiguousIdentifier(String, [Match])
     case listNotFound(String)
     case noAvailableLists
     case invalidDateFormat(String)
@@ -18,11 +23,10 @@ enum ReminderStoreError: LocalizedError {
             return "Reminder not found: \(identifier)"
         case .ambiguousIdentifier(let identifier, let matches):
             var message = "Ambiguous identifier '\(identifier)' matches \(matches.count) reminders:\n"
-            for reminder in matches {
-                let title = reminder.title ?? "(no title)"
-                let fullID = reminder.calendarItemIdentifier
-                let shortID = String(fullID.prefix(8))
-                message += "  [\(shortID)] \(fullID) - \(title)\n"
+            for match in matches {
+                let title = match.title ?? "(no title)"
+                let shortID = String(match.id.prefix(8))
+                message += "  [\(shortID)] \(match.id) - \(title)\n"
             }
             message += "\nPlease use a longer prefix (e.g., 9+ characters) or the full ID."
             return message
@@ -408,7 +412,9 @@ class ReminderStore {
         if matches.count == 1 {
             return matches[0]
         } else if matches.count > 1 {
-            throw ReminderStoreError.ambiguousIdentifier(identifier, matches)
+            throw ReminderStoreError.ambiguousIdentifier(identifier, matches.map {
+                .init(id: $0.calendarItemIdentifier, title: $0.title)
+            })
         }
 
         throw ReminderStoreError.reminderNotFound(identifier)
