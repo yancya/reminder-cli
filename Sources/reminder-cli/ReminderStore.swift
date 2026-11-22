@@ -276,15 +276,18 @@ class ReminderStore {
     }
 
     /// Picks the account (EKSource) a new list should live in: the account of
-    /// the default reminders list, otherwise an account that already holds
-    /// reminder lists (CalDAV/iCloud preferred over local).
+    /// the default reminders list; otherwise an account that already holds
+    /// reminder lists; and as a last resort (e.g. no lists exist at all) any
+    /// account. CalDAV (iCloud) is preferred over local at each step.
     private func preferredSourceForNewList(existing calendars: [EKCalendar]) -> EKSource? {
         if let source = eventStore.defaultCalendarForNewReminders()?.source {
             return source
         }
-        let reminderSources = calendars.compactMap(\.source)
-        return reminderSources.first(where: { $0.sourceType == .calDAV })
-            ?? reminderSources.first(where: { $0.sourceType == .local })
+        func pick(_ sources: [EKSource]) -> EKSource? {
+            sources.first(where: { $0.sourceType == .calDAV })
+                ?? sources.first(where: { $0.sourceType == .local })
+        }
+        return pick(calendars.compactMap(\.source)) ?? pick(eventStore.sources)
     }
 
     private func listCandidate(_ calendar: EKCalendar) -> ListMatcher.Candidate {
