@@ -217,74 +217,79 @@ class ReminderStore {
         }
         try formatter.output(lists: outputs)
     }
+    // MARK: - List Management Operations
 
-// MARK: - List Management Operations
+    func createList(name: String, format: OutputFormat = .text) throws {
+        let calendars = eventStore.calendars(for: .reminder)
+        let title = try ListMatcher.validateNewName(name, existing: calendars.map(listCandidate))
 
-func createList(name: String, format: OutputFormat = .text) throws {
-    let calendars = eventStore.calendars(for: .reminder)
-    let title = try ListMatcher.validateNewName(name, existing: calendars.map(listCandidate))
+        guard let source = preferredSourceForNewList(existing: calendars) else {
+            throw ReminderStoreError.noSourceForNewList
+        }
 
-    guard let source = preferredSourceForNewList() else {
-        throw ReminderStoreError.noSourceForNewList
-    }
+        let calendar = EKCalendar(for: .reminder, eventStore: eventStore)
+        calendar.title = title
+        calendar.source = source
+        try eventStore.saveCalendar(calendar, commit: true)
 
-    let calendar = EKCalendar(for: .reminder, eventStore: eventStore)
-    calendar.title = title
-    calendar.source = source
-    try eventStore.saveCalendar(calendar, commit: true)
-
-    if format == .text {
-        print("✅ Created list: \(calendar.title)")
-    } else {
-        let formatter = OutputFormatter(format: format)
-        try formatter.output(list: formatter.convertCalendar(calendar, reminderCount: nil))
-    }
-}
-
-func deleteList(_ query: String, force: Bool, format: OutputFormat = .text) throws {
-    let calendars = eventStore.calendars(for: .reminder)
-    let match = try ListMatcher.resolve(query, in: calendars.map(listCandidate))
-    guard let calendar = calendars.first(where: { $0.calendarIdentifier == match.id }) else {
-        throw ReminderStoreError.listNotFound(query)
-    }
-    guard !calendar.isImmutable else {
-        throw ReminderStoreError.listNotDeletable(calendar.title)
-    }
-
-    let title = calendar.title
-    let id = calendar.calendarIdentifier
-
-    if !force {
-        print("Delete list '\(title)' and ALL of its reminders? This cannot be undone. [y/N]: ", terminator: "")
-        guard let response = readLine()?.lowercased(), response == "y" || response == "yes" else {
-            print("Cancelled.")
-            return
+        if format == .text {
+            print("✅ Created list: \(calendar.title)")
+        } else {
+            let formatter = OutputFormatter(format: format)
+            try formatter.output(list: formatter.convertCalendar(calendar, reminderCount: nil))
         }
     }
 
-    try eventStore.removeCalendar(calendar, commit: true)
+    func deleteList(_ query: String, force: Bool, format: OutputFormat = .text) async throws {
+        let calendars = eventStore.calendars(for: .reminder)
+        let match = try ListMatcher.resolve(query, in: calendars.map(listCandidate))
+        guard let calendar = calendars.first(where: { $0.calendarIdentifier == match.id }) else {
+            throw ReminderStoreError.listNotFound(query)
+        }
+        guard !calendar.isImmutable else {
+            throw ReminderStoreError.listNotDeletable(calendar.title)
+        }
 
-    if format == .text {
-        print("🗑️  Deleted list: \(title)")
-    } else {
-        let formatter = OutputFormatter(format: format)
-        try formatter.output(deleteConfirmation: DeleteConfirmationOutput(deleted: true, id: id, title: title))
+        let title = calendar.title
+        let id = calendar.calendarIdentifier
+
+        if !force {
+            let count = try await fetchReminders(matching: eventStore.predicateForReminders(in: [calendar])).count
+            if calendar.calendarIdentifier == eventStore.defaultCalendarForNewReminders()?.calendarIdentifier {
+                print("⚠️  '\(title)' is your default list for new reminders.")
+            }
+            print("Delete list '\(title)' and its \(count) reminder(s)? This cannot be undone. [y/N]: ", terminator: "")
+            guard let response = readLine()?.lowercased(), response == "y" || response == "yes" else {
+                print("Cancelled.")
+                return
+            }
+        }
+
+        try eventStore.removeCalendar(calendar, commit: true)
+
+        if format == .text {
+            print("🗑️  Deleted list: \(title)")
+        } else {
+            let formatter = OutputFormatter(format: format)
+            try formatter.output(deleteConfirmation: DeleteConfirmationOutput(deleted: true, id: id, title: title))
+        }
     }
-}
 
-/// Picks the account (EKSource) a new list should live in: the account of
-/// the default reminders list, falling back to CalDAV (iCloud) and then local.
-private func preferredSourceForNewList() -> EKSource? {
-    if let source = eventStore.defaultCalendarForNewReminders()?.source {
-        return source
+    /// Picks the account (EKSource) a new list should live in: the account of
+    /// the default reminders list, otherwise an account that already holds
+    /// reminder lists (CalDAV/iCloud preferred over local).
+    private func preferredSourceForNewList(existing calendars: [EKCalendar]) -> EKSource? {
+        if let source = eventStore.defaultCalendarForNewReminders()?.source {
+            return source
+        }
+        let reminderSources = calendars.compactMap(\.source)
+        return reminderSources.first(where: { $0.sourceType == .calDAV })
+            ?? reminderSources.first(where: { $0.sourceType == .local })
     }
-    return eventStore.sources.first(where: { $0.sourceType == .calDAV })
-        ?? eventStore.sources.first(where: { $0.sourceType == .local })
-}
 
-private func listCandidate(_ calendar: EKCalendar) -> ListMatcher.Candidate {
-    ListMatcher.Candidate(id: calendar.calendarIdentifier, title: calendar.title)
-}
+    private func listCandidate(_ calendar: EKCalendar) -> ListMatcher.Candidate {
+        ListMatcher.Candidate(id: calendar.calendarIdentifier, title: calendar.title)
+    }
 
     // MARK: - Show Operation
 

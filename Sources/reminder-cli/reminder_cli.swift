@@ -219,7 +219,7 @@ extension ReminderCLI {
             mutating func run() async throws {
                 let store = ReminderStore()
                 try await store.requestAccess()
-                try store.deleteList(list, force: force, format: format)
+                try await store.deleteList(list, force: force, format: format)
             }
         }
     }

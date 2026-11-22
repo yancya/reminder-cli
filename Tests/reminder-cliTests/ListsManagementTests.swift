@@ -55,6 +55,10 @@ final class ListMatcherTests: XCTestCase {
         XCTAssertEqual(try ListMatcher.resolve("Groceries", in: candidates).id, "Groceries")
     }
 
+    func testQueryIsTrimmedLikeNewNames() throws {
+        XCTAssertEqual(try ListMatcher.resolve("  Groceries \n", in: lists).id, "CAL-2")
+    }
+
     func testTitleMatchIsCaseInsensitive() throws {
         XCTAssertEqual(try ListMatcher.resolve("GROCERIES", in: lists).id, "CAL-2")
     }

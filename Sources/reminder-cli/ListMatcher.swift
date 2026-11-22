@@ -8,12 +8,13 @@ enum ListMatcher {
         let title: String
     }
 
-    /// Resolves a user-supplied list reference to exactly one list.
+    /// Resolves a user-supplied list reference (trimmed of surrounding whitespace) to exactly one list.
     ///
     /// An exact `calendarIdentifier` match wins; otherwise the title is matched
     /// case-insensitively. Multiple title matches are rejected so that
     /// destructive operations never pick a list arbitrarily.
     static func resolve(_ query: String, in candidates: [Candidate]) throws -> Candidate {
+        let query = query.trimmingCharacters(in: .whitespacesAndNewlines)
         if let byID = candidates.first(where: { $0.id == query }) {
             return byID
         }
