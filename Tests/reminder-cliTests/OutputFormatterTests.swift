@@ -249,6 +249,26 @@ final class OutputFormatterTests: XCTestCase {
         XCTAssertTrue(output.contains("(no lists)"))
     }
 
+    func testSingleListJSONOutputIsAnObjectNotAnArray() throws {
+        let formatter = OutputFormatter(format: .json)
+        let output = try captureStdout {
+            try formatter.output(list: ListOutput(name: "Shopping", calendarIdentifier: "CAL-1", color: "#FF0000", reminderCount: nil))
+        }
+        let object = try JSONSerialization.jsonObject(with: output.data(using: .utf8)!) as? [String: Any]
+        XCTAssertEqual(object?["name"] as? String, "Shopping")
+        XCTAssertEqual(object?["calendarIdentifier"] as? String, "CAL-1")
+        XCTAssertEqual(object?["color"] as? String, "#FF0000")
+    }
+
+    func testSingleListYAMLOutput() throws {
+        let formatter = OutputFormatter(format: .yaml)
+        let output = try captureStdout {
+            try formatter.output(list: ListOutput(name: "Shopping", calendarIdentifier: "CAL-1", color: nil, reminderCount: nil))
+        }
+        XCTAssertTrue(output.contains("name: Shopping"))
+        XCTAssertTrue(output.contains("calendarIdentifier: CAL-1"))
+    }
+
     // MARK: - hexColor
 
     // Exercises hexColor directly with synthetic CGColor values rather than

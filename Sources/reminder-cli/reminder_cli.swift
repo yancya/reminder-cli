@@ -38,7 +38,7 @@ struct ReminderCLI: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "reminder-cli",
         abstract: "A CLI tool to manage iCloud Reminders",
-        version: "1.1.0",
+        version: "1.2.0-rc1",
         subcommands: [
             List.self,
             Show.self,
@@ -154,23 +154,73 @@ extension ReminderCLI {
     }
 }
 
-// MARK: - Lists Command
+// MARK: - Lists Command Group
 extension ReminderCLI {
     struct Lists: AsyncParsableCommand {
         static let configuration = CommandConfiguration(
-            abstract: "List all reminder lists"
+            abstract: "List, create, and delete reminder lists",
+            discussion: "Running `reminder-cli lists` without a subcommand lists all reminder lists (same as `lists list`).",
+            subcommands: [ListAll.self, Create.self, Delete.self],
+            defaultSubcommand: ListAll.self
         )
 
-        @Flag(name: .shortAndLong, help: "Include reminder count per list (all reminders, including completed; slower)")
-        var count: Bool = false
+        struct ListAll: AsyncParsableCommand {
+            static let configuration = CommandConfiguration(
+                commandName: "list",
+                abstract: "List all reminder lists"
+            )
 
-        @Option(name: .shortAndLong, help: "Output format (text, json, pretty-json, yaml)")
-        var format: OutputFormat = .text
+            @Flag(name: .shortAndLong, help: "Include reminder count per list (all reminders, including completed; slower)")
+            var count: Bool = false
 
-        mutating func run() async throws {
-            let store = ReminderStore()
-            try await store.requestAccess()
-            try await store.listCalendars(includeCount: count, format: format)
+            @Option(name: .shortAndLong, help: "Output format (text, json, pretty-json, yaml)")
+            var format: OutputFormat = .text
+
+            mutating func run() async throws {
+                let store = ReminderStore()
+                try await store.requestAccess()
+                try await store.listCalendars(includeCount: count, format: format)
+            }
+        }
+
+        struct Create: AsyncParsableCommand {
+            static let configuration = CommandConfiguration(
+                abstract: "Create a new reminder list"
+            )
+
+            @Argument(help: "The name of the list to create")
+            var name: String
+
+            @Option(name: .shortAndLong, help: "Output format (text, json, pretty-json, yaml)")
+            var format: OutputFormat = .text
+
+            mutating func run() async throws {
+                let store = ReminderStore()
+                try await store.requestAccess()
+                try store.createList(name: name, format: format)
+            }
+        }
+
+        struct Delete: AsyncParsableCommand {
+            static let configuration = CommandConfiguration(
+                abstract: "Delete a reminder list and all of its reminders",
+                discussion: "The list can be given by name (case-insensitive) or by calendarIdentifier. If several lists share the same name, use the calendarIdentifier."
+            )
+
+            @Argument(help: "The name or calendarIdentifier of the list to delete")
+            var list: String
+
+            @Flag(name: .shortAndLong, help: "Skip confirmation")
+            var force: Bool = false
+
+            @Option(name: .long, help: "Output format (text, json, pretty-json, yaml)")
+            var format: OutputFormat = .text
+
+            mutating func run() async throws {
+                let store = ReminderStore()
+                try await store.requestAccess()
+                try store.deleteList(list, force: force, format: format)
+            }
         }
     }
 }

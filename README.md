@@ -5,7 +5,7 @@ A Swift-based command-line tool to manage iCloud Reminders on macOS.
 ## Features
 
 - 📋 **List** - View all reminders or filter by specific list
-- 🗂️ **Lists** - View all reminder lists
+- 🗂️ **Lists** - View, create, and delete reminder lists
 - 🔍 **Show** - Display detailed information about a reminder (including alarms)
 - ➕ **Create** - Add new reminders with notes, URLs, start/due dates, and priority
 - ✏️ **Update** - Modify existing reminders
@@ -72,6 +72,26 @@ reminder-cli lists --count
 
 # Output format (text, json, pretty-json, yaml)
 reminder-cli lists --format json
+```
+
+### Create and delete reminder lists
+
+```bash
+# Create a new list (in the same account as your default reminders list)
+reminder-cli lists create "Shopping"
+
+# Print the created list as JSON (includes its calendarIdentifier)
+reminder-cli lists create "Shopping" --format json
+
+# Delete a list AND ALL OF ITS REMINDERS (asks for confirmation)
+reminder-cli lists delete "Shopping"
+
+# Skip confirmation, print a {"deleted": true, ...} object
+# (-f is --force here, so the format option is long-only)
+reminder-cli lists delete "Shopping" --force --format json
+
+# If several lists share a name, delete by calendarIdentifier instead
+reminder-cli lists delete 6A1B2C3D-0000-0000-0000-000000000000
 ```
 
 ### Show reminder details

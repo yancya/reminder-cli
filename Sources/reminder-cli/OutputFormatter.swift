@@ -257,6 +257,19 @@ struct OutputFormatter {
         }
     }
 
+    func output(list: ListOutput) throws {
+        switch format {
+        case .text:
+            outputText(lists: [list])
+        case .json:
+            try outputJSON(data: list, pretty: false)
+        case .prettyJson:
+            try outputJSON(data: list, pretty: true)
+        case .yaml:
+            try outputYAML(data: list)
+        }
+    }
+    
     func output(lists: [ListOutput]) throws {
         switch format {
         case .text:

@@ -14,6 +14,11 @@ enum ReminderStoreError: LocalizedError {
     case noAvailableLists
     case invalidDateFormat(String)
     case invalidPriority(Int)
+    case ambiguousListName(String, [Match])
+    case listAlreadyExists(String)
+    case listNotDeletable(String)
+    case invalidListName
+    case noSourceForNewList
 
     var errorDescription: String? {
         switch self {
@@ -38,6 +43,21 @@ enum ReminderStoreError: LocalizedError {
             return "Invalid date format: \(format). Use YYYY-MM-DD or YYYY-MM-DD HH:MM"
         case .invalidPriority(let priority):
             return "Invalid priority: \(priority). Use 0-9 (0=none, 1-4=high, 5=medium, 6-9=low)"
+        case .ambiguousListName(let name, let matches):
+            var message = "Ambiguous list name '\(name)' matches \(matches.count) lists:\n"
+            for match in matches {
+                message += "  \(match.id) - \(match.title ?? "(no title)")\n"
+            }
+            message += "\nPlease specify the list by its calendarIdentifier (see `reminder-cli lists --format json`)."
+            return message
+        case .listAlreadyExists(let name):
+            return "List already exists: \(name)"
+        case .listNotDeletable(let name):
+            return "List cannot be deleted (it is read-only or managed by its account): \(name)"
+        case .invalidListName:
+            return "List name must not be empty"
+        case .noSourceForNewList:
+            return "No account is available to create a new list in. Please check your Reminders accounts in System Settings."
         }
     }
 }
@@ -197,6 +217,74 @@ class ReminderStore {
         }
         try formatter.output(lists: outputs)
     }
+
+// MARK: - List Management Operations
+
+func createList(name: String, format: OutputFormat = .text) throws {
+    let calendars = eventStore.calendars(for: .reminder)
+    let title = try ListMatcher.validateNewName(name, existing: calendars.map(listCandidate))
+
+    guard let source = preferredSourceForNewList() else {
+        throw ReminderStoreError.noSourceForNewList
+    }
+
+    let calendar = EKCalendar(for: .reminder, eventStore: eventStore)
+    calendar.title = title
+    calendar.source = source
+    try eventStore.saveCalendar(calendar, commit: true)
+
+    if format == .text {
+        print("✅ Created list: \(calendar.title)")
+    } else {
+        let formatter = OutputFormatter(format: format)
+        try formatter.output(list: formatter.convertCalendar(calendar, reminderCount: nil))
+    }
+}
+
+func deleteList(_ query: String, force: Bool, format: OutputFormat = .text) throws {
+    let calendars = eventStore.calendars(for: .reminder)
+    let match = try ListMatcher.resolve(query, in: calendars.map(listCandidate))
+    guard let calendar = calendars.first(where: { $0.calendarIdentifier == match.id }) else {
+        throw ReminderStoreError.listNotFound(query)
+    }
+    guard !calendar.isImmutable else {
+        throw ReminderStoreError.listNotDeletable(calendar.title)
+    }
+
+    let title = calendar.title
+    let id = calendar.calendarIdentifier
+
+    if !force {
+        print("Delete list '\(title)' and ALL of its reminders? This cannot be undone. [y/N]: ", terminator: "")
+        guard let response = readLine()?.lowercased(), response == "y" || response == "yes" else {
+            print("Cancelled.")
+            return
+        }
+    }
+
+    try eventStore.removeCalendar(calendar, commit: true)
+
+    if format == .text {
+        print("🗑️  Deleted list: \(title)")
+    } else {
+        let formatter = OutputFormatter(format: format)
+        try formatter.output(deleteConfirmation: DeleteConfirmationOutput(deleted: true, id: id, title: title))
+    }
+}
+
+/// Picks the account (EKSource) a new list should live in: the account of
+/// the default reminders list, falling back to CalDAV (iCloud) and then local.
+private func preferredSourceForNewList() -> EKSource? {
+    if let source = eventStore.defaultCalendarForNewReminders()?.source {
+        return source
+    }
+    return eventStore.sources.first(where: { $0.sourceType == .calDAV })
+        ?? eventStore.sources.first(where: { $0.sourceType == .local })
+}
+
+private func listCandidate(_ calendar: EKCalendar) -> ListMatcher.Candidate {
+    ListMatcher.Candidate(id: calendar.calendarIdentifier, title: calendar.title)
+}
 
     // MARK: - Show Operation
 
